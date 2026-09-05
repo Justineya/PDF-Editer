@@ -10,6 +10,7 @@
     "start": "pnpm --dir apps/web dev --host --port 5173",
     "samples": "NODE_PATH=./apps/web/node_modules node ./scripts/generate-samples.mjs",
     "smoke": "NODE_PATH=./apps/web/node_modules node ./scripts/smoke-ops.mjs",
+    "e2e": "node ./scripts/e2e-smoke.mjs",
     "lint": "pnpm --dir apps/web lint"
   },
   "engines": {

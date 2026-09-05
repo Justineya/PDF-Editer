@@ -54,8 +54,24 @@ import {
   pdfToImagesZip,
   pdfToMarkdown,
 } from './pdf/convert'
-import { answerFromContext, extractiveSummary, ocrImageDataUrl } from './pdf/intel'
 import './styles/app.css'
+
+async function ocrImageDataUrl(
+  _url: string,
+  _lang?: string,
+  _onProgress?: (p: number) => void,
+): Promise<string> {
+  throw new Error('OCR 未包含在本阶段构建中')
+}
+function extractiveSummary(text: string): string {
+  return text.slice(0, 400) || '（无文本）'
+}
+async function answerFromContext(question: string, context: string): Promise<string> {
+  const q = question.toLowerCase()
+  const hit = context.split(/\n+/).find((p) => q && p.toLowerCase().includes(q.split(/\s+/)[0] || ''))
+  return hit ? `本地检索：${hit.slice(0, 280)}` : '未找到相关段落'
+}
+
 
 const MODE_LABEL: Record<AppMode, string> = {
   browse: '浏览',
@@ -1028,7 +1044,7 @@ export default function App() {
           <div className="welcome-card">
             <h1>ForgePDF</h1>
             <p className="lead">
-              本地优先的全能 PDF 工作台：阅读批注整理、轻编辑表单签名、OCR/转换、密文/安全/比较与本地 AI。文件默认不出本机。
+              本地优先的 PDF 工作台：阅读、批注、页面整理、轻编辑、填表与签名。文件默认不出本机。
             </p>
             <div className="welcome-actions">
               <button type="button" className="primary" onClick={() => fileRef.current?.click()}>
@@ -1466,7 +1482,7 @@ export default function App() {
             {mode === 'redact' && (
               <div className="stack">
                 <div className="ctx-warn muted" style={{ color: 'var(--danger)' }}>
-                  默认是视觉遮盖。点「强力密文」会栅格化相关页，降低复制残留风险。
+                  遮盖仅为视觉黑条（≠ 合规红act）。导出时黑条写入页面；强力栅格化为实验能力。
                 </div>
                 <div className="muted">拖拽框选密文区域</div>
                 {active.redactions.map((r) => (
@@ -1564,7 +1580,7 @@ export default function App() {
                         pageIndex,
                         2,
                       )
-                      const text = await ocrImageDataUrl(url, 'eng', (p) =>
+                      const text = await ocrImageDataUrl(url, 'eng', (p: number) =>
                         setBusy(`OCR ${Math.round(p * 100)}%`),
                       )
                       updateActive((d) => ({
@@ -1583,7 +1599,7 @@ export default function App() {
                 >
                   OCR 当前页（eng）
                 </button>
-                <div className="muted">Office 高质量互转需外置引擎；本版提供图/文本/Markdown/OCR。</div>
+                <div className="muted">本阶段不做 OCR / Office 转换；可导出图片 ZIP 与 Markdown 文本。</div>
               </div>
             )}
 

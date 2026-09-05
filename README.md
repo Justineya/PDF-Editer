@@ -1,96 +1,74 @@
 # ForgePDF
 
-本地优先、性能优先的全能 PDF 工作台。终局对标 Acrobat Pro 能力集；当前已落地 **Phase 1–4 可日用 Web 版**（Vite + React + PDF.js 渲染 + pdf-lib 写回）。
+本地优先、性能优先的 PDF 工作台（阅读 · 批注 · 页面整理 · 轻编辑 · 表单 · 签名）。
 
-环境暂未捆绑 Tauri 壳时，浏览器全屏即可当桌面工作台用；架构仍按本地桌面演进（见 `docs/product/`）。
+可运行实现：**Vite + React + TypeScript + PDF.js（渲染）+ pdf-lib（写回）**。  
+当前环境缺少 WebKit 时未捆绑 Tauri；浏览器全屏即可日用，后续可套桌面壳。产品设计见 [`docs/product/`](./docs/product/)。
 
-## 快速开始
-
-```bash
-# Node.js ≥ 20
-cd apps/web && npm install
-
-# 生成验收样例
-node ../../scripts/generate-samples.mjs
-# 或从仓库根：node scripts/generate-samples.mjs
-
-# 启动
-npm run dev
-```
-
-浏览器打开终端提示的地址（默认 http://localhost:5173）。
-
-根目录也可：
+## 启动
 
 ```bash
-npm run dev --prefix apps/web
-# 或 pnpm start（若已装 pnpm）
+pnpm --dir apps/web install
+pnpm samples          # 生成 samples/*.pdf
+pnpm start            # http://localhost:5173
+# 或: pnpm --dir apps/web dev
 ```
 
-## 功能清单（Phase 1 → 4）
+一条命令：`pnpm start`（需先 `pnpm --dir apps/web install`）。
 
-### Phase 1 — 阅读 / 批注 / 整理
+## 功能清单（Phase 1 / 2）
 
-- 打开本地 PDF、拖拽、多标签、最近文件名
-- 连续翻页、缩放、缩略图、大纲、全文搜索
-- 批注：高亮、下划线、删除线、便签、墨迹、图章
-- 导出时扁平化写入 PDF（重新打开可见）
-- 页面整理：合并、提取、删除、旋转、重排
+### Phase 1
+- 打开本地 PDF；拖拽；多标签；最近文件名；脏标记与关闭前提示
+- 连续滚动、缩放、缩略图、大纲、全文搜索
+- 批注：高亮 / 下划线 / 删除线 / 便签 / 墨迹 / 图章；列表可删
+- **导出带批注 PDF**（扁平化写入内容流，可靠可见）
+- 侧车 `.forge-annot.json` 备份
+- 页面整理：合并、拆分 ZIP、提取、删除、旋转、重排
+- 中文 UI；模式切换；欢迎页；快捷键 Ctrl+O/S/F/K、V/T/A/O/E/F/S
 
-### Phase 2 — 轻编辑 / 表单 / 签名
+### Phase 2
+- 叠加文字、图片、水印、视觉遮盖（明确 ≠ 红act）
+- AcroForm 填写并写回；内置「示例表单」
+- 手绘 / 图片签名并放置；另存副本
 
-- 叠加文字、图片、水印、视觉遮盖
-- AcroForm 填写并写回
-- 手绘 / 图片签名放置
-
-### Phase 3 — OCR / 转换
-
-- 当前页 OCR（Tesseract.js，默认 eng，可扩中文包）
-- PDF → 图片 ZIP、PDF → Markdown、图片 → PDF
-- Office 高质量互转仍为外置引擎规划项（UI 已标明）
-
-### Phase 4 — 密文 / 安全 / 比较 / 本地 AI
-
-- **强力密文**：框选后栅格化写回，降低复制残留风险（并标注能力边界）
-- 元数据查看与清理；可选导出密码加密
-- 双 PDF 首页像素比较
-- 本地提取式摘要 / 关键词问答（无云端）
+### 本阶段不做
+OCR、Office 转换、真红act、AI、账号云同步、印刷 Preflight。
 
 ## 持久化策略
 
 | 内容 | 策略 |
 |------|------|
-| 批注 / 叠字 / 签名 / 水印 / 密文框 | 导出时写入页面内容流（扁平化） |
-| 表单字段 | pdf-lib 写回 AcroForm |
-| 强力密文 | 相关页栅格化后重建，避免文本层残留 |
+| 批注 / 叠加 / 签名 / 水印 / 遮盖 | **扁平化绘制进页面**后导出；PDF.js 等阅读器再开可见。非 Annotation 字典互操作。 |
+| 表单 | **写回 AcroForm** |
+| 批注侧车 | 可选 `.forge-annot.json` |
 
-## 样例文件
+## 样例
 
-`node scripts/generate-samples.mjs` → `samples/`：
+`pnpm samples` → `samples/`：
 
-| 文件 | 用途 |
-|------|------|
-| `S-text-multipage.pdf` | 翻页 / 搜索 / 批注 / 整理 |
-| `S-form.pdf` | 填表 + 签名 |
-| `S-merge-b.pdf` | 合并测试 |
+- `S-text-multipage.pdf` — 多页文本
+- `S-form.pdf` — AcroForm
+- `S-merge-b.pdf` — 合并用第二文件
+
+自测：`pnpm smoke`（无头 ops）· `node scripts/e2e-smoke.mjs`（需 Chrome + 已 `pnpm start`）。
 
 ## 目录
 
 ```
-apps/web/         # 可运行应用
-docs/product/     # 产品设计（愿景 / 路线 / 架构 / UX / MVP）
-samples/          # 验收样例
-scripts/          # generate-samples.mjs
+apps/web/       Vite React 应用
+docs/product/   产品设计
+samples/        样例 PDF
+scripts/        generate-samples / smoke / e2e
 ```
 
 ## 已知限制
 
-- 浏览器下载式保存（非系统原生另存）；Tauri 壳后续套
-- 批注为扁平化绘制，非完整 PDF Annotation 字典互操作
-- OCR 默认 eng；中文需语言包
-- 真文本回流编辑、高质量 Office 转换仍为后续深化
-- 加密 PDF 为尽力打开（ignoreEncryption）
+- 浏览器下载导出，非原生「覆盖保存」
+- 批注非标准 Annotation 字典（见上）
+- 文本批注为框选区域
+- 超大扫描件受浏览器内存限制；终局渲染仍规划 PDFium（见架构文档）
 
 ## 许可
 
-依赖默认 Apache/MIT/BSD（PDF.js、pdf-lib、React、Vite、Tesseract.js）；未引入 MuPDF/iText 等 AGPL。
+依赖默认 Apache/MIT/BSD（PDF.js、pdf-lib、React、Vite）；未引入 MuPDF/iText 等 AGPL。
