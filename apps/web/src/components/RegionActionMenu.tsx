@@ -3,11 +3,18 @@ import {
   IconClose,
   IconImage,
   IconReplace,
+  IconStreamEdit,
   IconText,
   IconWhiteout,
 } from './icons'
 
-export type RegionAction = 'add-text' | 'whiteout' | 'cover-edit' | 'insert-image' | 'cancel'
+export type RegionAction =
+  | 'add-text'
+  | 'whiteout'
+  | 'cover-edit'
+  | 'stream-edit'
+  | 'insert-image'
+  | 'cancel'
 
 type Props = {
   /** Region in page PDF coords */
@@ -34,6 +41,15 @@ export function RegionActionMenu({ region, scale, onAction }: Props) {
       <button type="button" role="menuitem" onClick={() => onAction('add-text')}>
         <IconText size={15} />
         <span>添加文字</span>
+      </button>
+      <button
+        type="button"
+        role="menuitem"
+        onClick={() => onAction('stream-edit')}
+        title="改写页面内容流（真编辑，简单拉丁 PDF 效果最好）"
+      >
+        <IconStreamEdit size={15} />
+        <span>修改原文</span>
       </button>
       <button type="button" role="menuitem" onClick={() => onAction('cover-edit')}>
         <IconReplace size={15} />

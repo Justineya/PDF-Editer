@@ -232,6 +232,8 @@ export type PageViewProps = {
   onSelectEdit: (ref: EditObjectRef | null) => void
   onPendingSelection: (sel: PageSelection | null) => void
   onPickImage?: (pageIndex: number, x: number, y: number) => void
+  /** Content-stream rewrite (true edit). Reloads document bytes on success. */
+  onStreamEdit?: (pageIndex: number, region: Rect, text: string) => void | Promise<void>
 }
 
 export function PageView({
@@ -255,6 +257,7 @@ export function PageView({
   onSelectEdit,
   onPendingSelection,
   onPickImage,
+  onStreamEdit,
 }: PageViewProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const pageRef = useRef<HTMLDivElement>(null)
@@ -270,6 +273,8 @@ export function PageView({
     region: Rect
     withWhiteout: boolean
     seed?: string
+    /** overlay = cover/add layer; stream = content-stream rewrite */
+    mode?: 'overlay' | 'stream'
   }>(null)
 
   useEffect(() => {
@@ -796,11 +801,20 @@ export function PageView({
                 return
               }
               if (action === 'add-text') {
-                setInlineEdit({ region, withWhiteout: false, seed: editText || '' })
+                setInlineEdit({ region, withWhiteout: false, seed: editText || '', mode: 'overlay' })
+                return
+              }
+              if (action === 'stream-edit') {
+                setInlineEdit({
+                  region,
+                  withWhiteout: true,
+                  seed: editText || '',
+                  mode: 'stream',
+                })
                 return
               }
               if (action === 'cover-edit') {
-                setInlineEdit({ region, withWhiteout: true, seed: editText || '' })
+                setInlineEdit({ region, withWhiteout: true, seed: editText || '', mode: 'overlay' })
               }
             }}
           />
@@ -819,6 +833,13 @@ export function PageView({
           onCommit={(text) => {
             const region = inlineEdit.region
             const content = text.trim() || ' '
+            if (inlineEdit.mode === 'stream') {
+              void Promise.resolve(onStreamEdit?.(pageIndex, region, content)).finally(() => {
+                setInlineEdit(null)
+                setPendingRegion(null)
+              })
+              return
+            }
             onMutateDoc((d) => ({
               ...d,
               dirty: true,

@@ -57,6 +57,17 @@ export function IconReplace({ size = 16, className }: IconProps) {
   )
 }
 
+/** Content-stream / edit-original */
+export function IconStreamEdit({ size = 16, className }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" className={className} aria-hidden>
+      <path d="M4 20h6L19 11l-3-3L7 17v3z" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round" />
+      <path d="M14 6l3 3" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+      <path d="M4 4h7" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+    </svg>
+  )
+}
+
 export function IconWatermark({ size = 16, className }: IconProps) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" className={className} aria-hidden>

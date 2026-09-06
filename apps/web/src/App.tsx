@@ -47,6 +47,7 @@ import {
   stripMetadata,
   exportDocument,
 } from './pdf/ops'
+import { rewritePageRegionText } from './pdf/contentStreamEdit'
 import {
   comparePageCanvases,
   downloadBytes,
@@ -1001,6 +1002,31 @@ useEffect(() => {
                     imageRef.current?.setAttribute('data-y', String(y))
                     imageRef.current?.click()
                   }}
+                  onStreamEdit={async (pageIndex, region, text) => {
+                    if (!active) return
+                    setBusy('正在改写内容流…')
+                    try {
+                      const result = await rewritePageRegionText(active.bytes, {
+                        pageIndex,
+                        region,
+                        newText: text,
+                      })
+                      await replaceStructure(result.bytes, false)
+                      const tip =
+                        result.removedRuns > 0
+                          ? `已改写原文（清除 ${result.removedRuns} 处文字绘制）`
+                          : '已写入新字（未命中原文字符绘制，可能是扫描件/复杂字体）'
+                      show(
+                        result.warnings.length
+                          ? `${tip}。${result.warnings[0]}`
+                          : tip,
+                      )
+                    } catch (err) {
+                      show(`内容流改写失败：${err instanceof Error ? err.message : err}`)
+                    } finally {
+                      setBusy(null)
+                    }
+                  }}
                 />
               ))}
             </div>
@@ -1198,7 +1224,7 @@ useEffect(() => {
                 {editTool === 'region' && (
                   <ol className="edit-steps muted">
                     <li>在页面上拖拽框选一块区域</li>
-                    <li>在弹出菜单中选「添加文字 / 覆盖改字 / 白盖」</li>
+                    <li>选「修改原文」改内容流，或「覆盖改字」做白盖叠字</li>
                     <li>就地输入后点「完成」</li>
                   </ol>
                 )}
@@ -1241,7 +1267,7 @@ useEffect(() => {
                   视觉遮盖工具…
                 </button>
                 <div className="muted">
-                  当前为覆盖编辑（白盖 + 新字叠层），不是 Acrobat 级内容流改写。导出时写入页面。
+                  「修改原文」会改写页面内容流（简单拉丁 PDF 最稳）；失败或中文复杂字体请用「覆盖改字」。导出后第三方阅读器可见。
                 </div>
                 <div className="divider" />
                 <h4 className="field-label">本页对象</h4>
