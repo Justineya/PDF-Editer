@@ -1,7 +1,7 @@
 import { GlobalWorkerOptions, getDocument, type PDFDocumentProxy } from 'pdfjs-dist'
-import pdfWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
 
-GlobalWorkerOptions.workerSrc = pdfWorker
+// Prefer stable public URL (avoids Vite optimize-deps 504 blank renders)
+GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs'
 
 type PdfDoc = PDFDocumentProxy & { destroy?: () => Promise<void> | void }
 
@@ -50,36 +50,106 @@ export async function destroyPdf(id: string) {
   }
 }
 
-export async function renderPageToCanvas(
+type CanvasRenderHandle = {
+  cancel: () => void
+  promise: Promise<{ width: number; height: number }>
+}
+
+/**
+ * Render a PDF page onto `canvas`.
+ * Renders onto an offscreen canvas first, then blits — so React StrictMode /
+ * cancel races cannot wipe a finished frame on the visible canvas.
+ */
+export function renderPageToCanvas(
   pdf: PDFDocumentProxy,
   pageIndex: number,
   scale: number,
   canvas: HTMLCanvasElement,
-): Promise<{ width: number; height: number }> {
-  const page = await pdf.getPage(pageIndex + 1)
-  const viewport = page.getViewport({ scale })
-  const ctx = canvas.getContext('2d')
-  if (!ctx) throw new Error('无法创建画布上下文')
-  // Abort any in-flight render on this canvas (React StrictMode / rapid zoom)
-  const prev = (canvas as HTMLCanvasElement & { __forgeRender?: { cancel: () => void } }).__forgeRender
-  try {
-    prev?.cancel()
-  } catch {
-    /* ignore */
-  }
-  canvas.width = Math.floor(viewport.width)
-  canvas.height = Math.floor(viewport.height)
-  const task = page.render({ canvas, canvasContext: ctx, viewport })
-  ;(canvas as HTMLCanvasElement & { __forgeRender?: { cancel: () => void } }).__forgeRender = task
-  try {
-    await task.promise
-  } finally {
-    const cur = (canvas as HTMLCanvasElement & { __forgeRender?: { cancel: () => void } }).__forgeRender
-    if (cur === task) {
-      delete (canvas as HTMLCanvasElement & { __forgeRender?: { cancel: () => void } }).__forgeRender
+): CanvasRenderHandle {
+  let cancelled = false
+  let pdfTask: { cancel: () => void } | null = null
+
+  const promise = (async () => {
+    const page = await pdf.getPage(pageIndex + 1)
+    if (cancelled) throw makeCancelError()
+    const viewport = page.getViewport({ scale })
+    const w = Math.max(1, Math.floor(viewport.width))
+    const h = Math.max(1, Math.floor(viewport.height))
+
+    const off = document.createElement('canvas')
+    off.width = w
+    off.height = h
+    const offCtx = off.getContext('2d', { alpha: false })
+    if (!offCtx) throw new Error('无法创建画布上下文')
+    offCtx.fillStyle = '#ffffff'
+    offCtx.fillRect(0, 0, w, h)
+
+    const task = page.render({
+      canvas: off,
+      canvasContext: offCtx,
+      viewport,
+    })
+    pdfTask = task
+    try {
+      await task.promise
+    } catch (err) {
+      if (cancelled || isCancelError(err)) throw makeCancelError()
+      throw err
     }
+    if (cancelled) throw makeCancelError()
+
+    canvas.width = w
+    canvas.height = h
+    const ctx = canvas.getContext('2d', { alpha: false })
+    if (!ctx) throw new Error('无法创建画布上下文')
+    ctx.drawImage(off, 0, 0)
+    return { width: viewport.width, height: viewport.height }
+  })()
+
+  return {
+    cancel: () => {
+      cancelled = true
+      try {
+        pdfTask?.cancel()
+      } catch {
+        /* ignore */
+      }
+    },
+    promise,
   }
-  return { width: viewport.width, height: viewport.height }
+}
+
+function makeCancelError() {
+  const err = new Error('Rendering cancelled')
+  err.name = 'RenderingCancelledException'
+  return err
+}
+
+function isCancelError(err: unknown) {
+  if (!err || typeof err !== 'object') return false
+  const name = 'name' in err ? String((err as { name: unknown }).name) : ''
+  const msg = 'message' in err ? String((err as { message: unknown }).message) : ''
+  return (
+    name === 'RenderingCancelledException' ||
+    name === 'RenderingCancelledException' ||
+    /cancel/i.test(name) ||
+    /cancel/i.test(msg)
+  )
+}
+
+/** Await helper that swallows cancel errors (for fire-and-forget callers). */
+export async function renderPageToCanvasAwait(
+  pdf: PDFDocumentProxy,
+  pageIndex: number,
+  scale: number,
+  canvas: HTMLCanvasElement,
+): Promise<{ width: number; height: number } | null> {
+  try {
+    return await renderPageToCanvas(pdf, pageIndex, scale, canvas).promise
+  } catch (err) {
+    if (isCancelError(err)) return null
+    throw err
+  }
 }
 
 export async function getPageText(pdf: PDFDocumentProxy, pageIndex: number): Promise<string> {
@@ -147,7 +217,8 @@ export async function extractPageImageDataUrl(
   scale = 1.5,
 ): Promise<string> {
   const canvas = document.createElement('canvas')
-  await renderPageToCanvas(pdf, pageIndex, scale, canvas)
+  const result = await renderPageToCanvasAwait(pdf, pageIndex, scale, canvas)
+  if (!result) throw new Error('页面渲染被取消')
   return canvas.toDataURL('image/png')
 }
 

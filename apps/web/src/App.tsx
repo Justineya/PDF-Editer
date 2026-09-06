@@ -336,15 +336,17 @@ function PageView({
     const pdf = getCachedPdf(doc.id)
     const canvas = canvasRef.current
     if (!pdf || !canvas) return
-    let cancelled = false
-    ;(async () => {
-      await renderPageToCanvas(pdf, pageIndex, scale, canvas)
-      if (cancelled) return
-    })().catch(console.error)
+    const handle = renderPageToCanvas(pdf, pageIndex, scale, canvas)
+    handle.promise.catch((err) => {
+      if (err && typeof err === 'object' && 'name' in err && (err as { name: string }).name === 'RenderingCancelledException') {
+        return
+      }
+      console.error(err)
+    })
     return () => {
-      cancelled = true
+      handle.cancel()
     }
-  }, [doc.id, doc.bytes, pageIndex, scale])
+  }, [doc.id, pageIndex, scale])
 
   const toLocal = (e: ReactPointerEvent) => {
     const el = overlayRef.current!
@@ -931,8 +933,8 @@ export default function App() {
             const pdfB = getCachedPdf(other.id)!
             const ca = document.createElement('canvas')
             const cb = document.createElement('canvas')
-            await renderPageToCanvas(pdfA, 0, 1.2, ca)
-            await renderPageToCanvas(pdfB, 0, 1.2, cb)
+            await renderPageToCanvas(pdfA, 0, 1.2, ca).promise
+            await renderPageToCanvas(pdfB, 0, 1.2, cb).promise
             const { diffPercent, diffCanvas } = await comparePageCanvases(ca, cb)
             setCompareResult({ pct: diffPercent, url: diffCanvas.toDataURL('image/png') })
             await destroyPdf(other.id)
@@ -1842,7 +1844,9 @@ function Thumb({ docId, pageIndex }: { docId: string; pageIndex: number }) {
     const pdf = getCachedPdf(docId)
     const canvas = ref.current
     if (!pdf || !canvas) return
-    void renderPageToCanvas(pdf, pageIndex, 0.2, canvas).catch(() => undefined)
+    const handle = renderPageToCanvas(pdf, pageIndex, 0.2, canvas)
+    handle.promise.catch(() => undefined)
+    return () => handle.cancel()
   }, [docId, pageIndex])
   return <canvas ref={ref} />
 }
