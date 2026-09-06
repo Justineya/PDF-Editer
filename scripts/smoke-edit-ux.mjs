@@ -58,11 +58,11 @@ try {
 
   await page.evaluate(() => {
     ;[...document.querySelectorAll('.modebar button')]
-      .find((b) => (b.textContent || '').trim() === '编辑')
+      .find((b) => (b.textContent || '').includes('编辑'))
       ?.click()
   })
   await page.waitForFunction(
-    () => document.querySelector('.modebar button.active')?.textContent?.trim() === '编辑',
+    () => (document.querySelector('.modebar button.active')?.textContent || '').includes('编辑'),
     { timeout: 8000 },
   )
   await page.waitForSelector('.edit-toolbar', { timeout: 8000 })
@@ -78,18 +78,34 @@ try {
   console.log('TOOLS', tools)
   if (tools.active?.includes('选择')) pass('default tool is 选择')
   else fail(`expected default 选择, got ${tools.active}`)
-  if (tools.labels.some((l) => l?.includes('矩形'))) pass('shape tool present')
+  if (tools.labels.some((l) => l?.includes('图形') || l?.includes('图形'))) pass('shape tool present')
   else fail('shape tool missing')
-  if (tools.hasColor) pass('color picker present')
-  else fail('color picker missing')
-  if (!tools.labels.some((l) => l?.includes('白盖') || l?.includes('覆盖'))) {
+  // color pickers live in style bar now
+  pass('color pickers checked via style bar')
+    const style = await page.evaluate(() => ({
+    stylebar: !!document.querySelector('.edit-stylebar'),
+    fonts: [...document.querySelectorAll('.edit-stylebar select option')].map((o) => o.textContent?.trim()),
+    shapes: [...document.querySelectorAll('.edit-style-shapes button')].map((b) => b.textContent?.trim()),
+    colors: document.querySelectorAll('.edit-stylebar input[type=color]').length,
+  }))
+  console.log('STYLE', style)
+  if (style.stylebar) pass('style bar present (pick before place)')
+  else fail('style bar missing')
+  if (style.fonts?.length >= 3) pass(`fonts available: ${style.fonts.join('/')}`)
+  else fail('font options missing')
+  if (style.shapes?.some((s) => s?.includes('矩形') || s?.includes('图形')) && style.shapes?.some((s) => s?.includes('椭圆'))) pass('rect/ellipse shape pickers')
+  else fail('shape pickers missing')
+  if (style.colors >= 2) pass('text + fill color pickers')
+  else fail('color pickers missing')
+
+if (!tools.labels.some((l) => l?.includes('白盖') || l?.includes('覆盖'))) {
     pass('cover/whiteout removed from primary tools')
   } else fail('cover/whiteout still in primary tools')
 
   // Draw a shape
   await page.evaluate(() => {
     ;[...document.querySelectorAll('.edit-toolbar button')]
-      .find((b) => (b.textContent || '').includes('矩形'))
+      .find((b) => (b.textContent || '').includes('图形'))
       ?.click()
   })
   await page.evaluate(() => {
@@ -153,7 +169,7 @@ try {
   // Create again, then Delete key
   await page.evaluate(() => {
     ;[...document.querySelectorAll('.edit-toolbar button')]
-      .find((b) => (b.textContent || '').includes('矩形'))
+      .find((b) => (b.textContent || '').includes('图形'))
       ?.click()
   })
   await new Promise((r) => setTimeout(r, 150))

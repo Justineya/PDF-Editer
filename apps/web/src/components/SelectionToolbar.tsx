@@ -37,7 +37,7 @@ export function SelectionToolbar({
       <button type="button" onClick={onUnderline}>下划线</button>
       <button type="button" onClick={onStrike}>删除线</button>
       {showCoverReplace && (
-        <button type="button" className="primary" onClick={onCoverReplace}>覆盖替换</button>
+        <button type="button" className="primary" onClick={onCoverReplace}>改文字</button>
       )}
       <button type="button" className="ghost" onClick={onDismiss} title="关闭">×</button>
       <span className="selection-toolbar-meta" title={selection.text}>

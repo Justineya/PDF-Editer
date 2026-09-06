@@ -13,6 +13,7 @@ import type {
   AppMode,
   DocumentModel,
   EditObjectRef,
+  EditStyle,
   EditTool,
   Point,
   Rect,
@@ -118,13 +119,14 @@ function AnnotPaint(props: {
           .map((w) => (
             <div
               key={w.id}
-              className="whiteout-box"
+              className={`whiteout-box ${w.shape === 'ellipse' ? 'is-ellipse' : ''}`}
               style={{
                 left: w.rect.x * scale,
                 top: w.rect.y * scale,
                 width: w.rect.w * scale,
                 height: w.rect.h * scale,
                 background: w.color || '#fff',
+                borderRadius: w.shape === 'ellipse' ? '50%' : undefined,
               }}
             />
           ))}
@@ -141,6 +143,16 @@ function AnnotPaint(props: {
                 color: o.color,
                 fontSize: o.fontSize * scale * 0.85,
                 fontWeight: o.bold ? 700 : 600,
+                fontFamily:
+                  o.fontFamily === 'times'
+                    ? '"Times New Roman", Times, serif'
+                    : o.fontFamily === 'courier'
+                      ? '"Courier New", Courier, monospace'
+                      : o.fontFamily === 'serif-cjk'
+                        ? '"Noto Serif SC", "Songti SC", SimSun, serif'
+                        : o.fontFamily === 'sans-cjk'
+                          ? '"Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif'
+                          : 'Helvetica, Arial, sans-serif',
               }}
             >
               {o.text}
@@ -221,6 +233,7 @@ export type PageViewProps = {
   color: string
   selectedOrganize: number[]
   editText: string
+  editStyle: EditStyle
   signatureDataUrl: string | null
   editTool: EditTool
   selectedEdit: EditObjectRef | null
@@ -248,6 +261,7 @@ export function PageView({
   color,
   selectedOrganize,
   editText,
+  editStyle,
   signatureDataUrl,
   editTool,
   selectedEdit,
@@ -364,36 +378,20 @@ export function PageView({
 
   const coverReplace = () => {
     if (!pendingSelection || pendingSelection.pageIndex !== pageIndex) return
-    const next = window.prompt('覆盖替换为（覆盖编辑，非改内容流）', pendingSelection.text)
-    if (next == null) return
     const rects = pendingSelection.rects
-    onMutateDoc((d) => ({
-      ...d,
-      dirty: true,
-      whiteouts: [
-        ...(d.whiteouts ?? []),
-        ...rects.map((rect) => ({
-          id: uuid(),
-          pageIndex,
-          rect: { ...rect, h: Math.max(rect.h, 10), w: Math.max(rect.w, 8) },
-          color: '#ffffff',
-        })),
-      ],
-      overlays: [
-        ...d.overlays,
-        {
-          id: uuid(),
-          pageIndex,
-          x: rects[0].x,
-          y: rects[0].y,
-          text: next || ' ',
-          fontSize: Math.max(10, rects[0].h * 0.85),
-          color: '#1a2332',
-          w: rects.reduce((m, r) => Math.max(m, r.x + r.w - rects[0].x), 40),
-          h: rects[0].h,
-        },
-      ],
-    }))
+    if (!rects.length) return
+    const x = Math.min(...rects.map((r) => r.x))
+    const y = Math.min(...rects.map((r) => r.y))
+    const r = Math.max(...rects.map((r) => r.x + r.w))
+    const b = Math.max(...rects.map((r) => r.y + r.h))
+    const region = { x, y, w: Math.max(r - x, 40), h: Math.max(b - y, 16) }
+    // Prefer content-stream edit; do NOT auto-drop a white block.
+    setInlineEdit({
+      region,
+      withWhiteout: false,
+      seed: pendingSelection.text,
+      mode: 'stream',
+    })
     clearDomSelection()
     onPendingSelection(null)
   }
@@ -445,10 +443,12 @@ export function PageView({
     }
     if (mode === 'edit' && editTool === 'text') {
       setPendingRegion(null)
+      const h = Math.max(editStyle.fontSize * 1.4, 24)
       setInlineEdit({
-        region: { x: p.x, y: p.y, w: 160, h: 28 },
+        region: { x: p.x, y: p.y, w: Math.max(160, editStyle.fontSize * 8), h },
         withWhiteout: false,
         seed: editText || '',
+        mode: 'overlay',
       })
       return
     }
@@ -483,8 +483,9 @@ export function PageView({
         setPendingRegion(null)
         setInlineEdit({
           region: { ...hit.rect, h: Math.max(hit.rect.h, 16), w: Math.max(hit.rect.w, 40) },
-          withWhiteout: true,
+          withWhiteout: false,
           seed: hit.str,
+          mode: 'stream',
         })
       })()
       return
@@ -583,7 +584,13 @@ export function PageView({
           dirty: true,
           whiteouts: [
             ...(d.whiteouts ?? []),
-            { id, pageIndex, rect: box, color: color || '#ffffff' },
+            {
+              id,
+              pageIndex,
+              rect: box,
+              color: editStyle.fillColor || color || '#ffffff',
+              shape: editStyle.shape,
+            },
           ],
         }))
         onSelectEdit({ kind: 'whiteout', id })
@@ -748,7 +755,7 @@ export function PageView({
               mode === 'redact'
                 ? 'rgba(0,0,0,0.55)'
                 : editTool === 'shape'
-                  ? color
+                  ? editStyle.fillColor
                   : editTool === 'region'
                     ? 'rgba(47,93,80,0.12)'
                     : undefined,
@@ -796,7 +803,13 @@ export function PageView({
                   dirty: true,
                   whiteouts: [
                     ...(d.whiteouts ?? []),
-                    { id, pageIndex, rect: region, color: color || '#ffffff' },
+                    {
+                      id,
+                      pageIndex,
+                      rect: region,
+                      color: editStyle.fillColor || color || '#ffffff',
+                      shape: editStyle.shape,
+                    },
                   ],
                 }))
                 onSelectEdit({ kind: 'whiteout', id })
@@ -816,7 +829,7 @@ export function PageView({
               if (action === 'stream-edit') {
                 setInlineEdit({
                   region,
-                  withWhiteout: true,
+                  withWhiteout: false,
                   seed: editText || '',
                   mode: 'stream',
                 })
@@ -834,7 +847,10 @@ export function PageView({
           region={inlineEdit.region}
           scale={scale}
           initialText={inlineEdit.seed}
-          withWhiteout={inlineEdit.withWhiteout}
+          withWhiteout={false}
+          fontFamily={editStyle.fontFamily}
+          fontSize={editStyle.fontSize}
+          color={editStyle.textColor}
           onCancel={() => {
             setInlineEdit(null)
             setPendingRegion(null)
@@ -857,7 +873,7 @@ export function PageView({
               whiteouts: coverId
                 ? [
                     ...(d.whiteouts ?? []),
-                    { id: coverId, pageIndex, rect: region, color: color || '#ffffff' },
+                    { id: coverId, pageIndex, rect: region, color: editStyle.fillColor || color || '#ffffff', shape: editStyle.shape },
                   ]
                 : d.whiteouts ?? [],
               overlays: [
@@ -868,8 +884,9 @@ export function PageView({
                   x: region.x + 2,
                   y: region.y + 2,
                   text: content,
-                  fontSize: Math.max(12, Math.min(28, region.h * 0.7)),
-                  color: '#1a2332',
+                  fontSize: editStyle.fontSize,
+                  color: editStyle.textColor,
+                  fontFamily: editStyle.fontFamily,
                   w: Math.max(region.w - 4, 40),
                   h: Math.max(region.h - 4, 18),
                 },

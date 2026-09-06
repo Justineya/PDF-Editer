@@ -12,6 +12,7 @@ import type {
   DocumentModel,
   EditTool,
   EditObjectRef,
+  EditStyle,
 } from './types'
 import { PageView } from './components/PageView'
 import { EditToolbar, EDIT_TOOL_META } from './components/EditToolbar'
@@ -76,6 +77,20 @@ async function answerFromContext(question: string, context: string): Promise<str
 }
 
 
+const MODE_ICON: Partial<Record<AppMode, string>> = {
+  browse: '◎',
+  select: '𝐓',
+  annotate: '✎',
+  organize: '☰',
+  edit: '✲',
+  form: '▢',
+  sign: '✍',
+  redact: '▮',
+  convert: '⇩',
+  compare: '⇄',
+  security: '⚿',
+}
+
 const MODE_LABEL: Record<AppMode, string> = {
   browse: '浏览',
   select: '选择文字',
@@ -139,6 +154,13 @@ export default function App() {
   const [formFields, setFormFields] = useState<Array<{ name: string; type: string }>>([])
   const [selectedPages, setSelectedPages] = useState<number[]>([])
   const [editTool, setEditTool] = useState<EditTool>('select')
+  const [editStyle, setEditStyle] = useState<EditStyle>({
+    fontFamily: 'sans-cjk',
+    fontSize: 16,
+    textColor: '#1a2332',
+    fillColor: '#ffffff',
+    shape: 'rect',
+  })
   const [selectedEdit, setSelectedEdit] = useState<EditObjectRef | null>(null)
   const [pendingSelection, setPendingSelection] = useState<PageSelection | null>(null)
   const history = useDocHistory(activeId)
@@ -835,7 +857,8 @@ useEffect(() => {
             }}
             title={m}
           >
-            {MODE_LABEL[m]}
+            <span className="modebar-ico" aria-hidden>{MODE_ICON[m] ?? '·'}</span>
+            <span>{MODE_LABEL[m]}</span>
           </button>
         ))}
         <button
@@ -889,7 +912,12 @@ useEffect(() => {
       </div>
 
       {mode === 'edit' && active && (
-        <EditToolbar editTool={editTool} onChange={setEditTool} fillColor={color} onFillColorChange={setColor} />
+        <EditToolbar
+          editTool={editTool}
+          onChange={setEditTool}
+          style={editStyle}
+          onStyleChange={(patch) => setEditStyle((s) => ({ ...s, ...patch }))}
+        />
       )}
 
       {!active ? (
@@ -1033,6 +1061,7 @@ useEffect(() => {
                   color={color}
                   selectedOrganize={selectedPages}
                   editText={editText}
+                  editStyle={editStyle}
                   signatureDataUrl={signatureDataUrl}
                   editTool={editTool}
                   selectedEdit={selectedEdit}
@@ -1362,7 +1391,7 @@ useEffect(() => {
                   视觉遮盖工具…
                 </button>
                 <div className="muted">
-                  推荐：矩形工具 + 颜色遮盖，或添加文字。「修改原文」仅适合简单拉丁 PDF。Delete 可删选中对象。
+                  先在上方选好字体/字号/填色/形状，再放置。改原文不再自动盖白块。Delete 删除选中对象。
                 </div>
                 <div className="divider" />
                 <h4 className="field-label">对象列表（点选 / 删除）</h4>

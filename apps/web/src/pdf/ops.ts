@@ -137,23 +137,46 @@ function drawStamp(page: PDFPage, ann: Extract<Annotation, { kind: 'stamp' }>, f
   })
 }
 
+async function fontForFamily(pdf: PDFDocument, family?: string, bold?: boolean) {
+  const map: Record<string, StandardFonts> = {
+    helvetica: bold ? StandardFonts.HelveticaBold : StandardFonts.Helvetica,
+    times: bold ? StandardFonts.TimesRomanBold : StandardFonts.TimesRoman,
+    courier: bold ? StandardFonts.CourierBold : StandardFonts.Courier,
+  }
+  // CJK families fall back to Helvetica for standard embed (no embedded CJK font yet)
+  const key = family && map[family] ? family : 'helvetica'
+  return pdf.embedFont(map[key])
+}
+
 async function drawOverlays(
   pdf: PDFDocument,
   page: PDFPage,
   pageIndex: number,
   texts: OverlayText[],
   images: OverlayImage[],
-  font: PDFFont,
+  _font: PDFFont,
 ) {
   const { height } = page.getSize()
   for (const t of texts.filter((x) => x.pageIndex === pageIndex)) {
-    page.drawText(t.text, {
-      x: t.x,
-      y: height - t.y,
-      size: t.fontSize,
-      font,
-      color: hexToRgb(t.color),
-    })
+    const textFont = await fontForFamily(pdf, t.fontFamily, t.bold)
+    // pdf-lib WinAnsi cannot encode most CJK; keep best-effort Latin and skip empty
+    try {
+      page.drawText(t.text, {
+        x: t.x,
+        y: height - t.y,
+        size: t.fontSize,
+        font: textFont,
+        color: hexToRgb(t.color),
+      })
+    } catch {
+      page.drawText(t.text.replace(/[^\x00-\xFF]/g, '?'), {
+        x: t.x,
+        y: height - t.y,
+        size: t.fontSize,
+        font: textFont,
+        color: hexToRgb(t.color),
+      })
+    }
   }
   for (const img of images.filter((x) => x.pageIndex === pageIndex)) {
     const embedded = await embedImage(pdf, img.dataUrl)
@@ -249,14 +272,26 @@ export async function listFormFields(bytes: Uint8Array): Promise<Array<{ name: s
 function drawWhiteouts(page: PDFPage, pageIndex: number, whiteouts: WhiteoutRect[]) {
   const { height } = page.getSize()
   for (const w of whiteouts.filter((x) => x.pageIndex === pageIndex)) {
-    page.drawRectangle({
-      x: w.rect.x,
-      y: height - w.rect.y - w.rect.h,
-      width: w.rect.w,
-      height: w.rect.h,
-      color: hexToRgb(w.color || '#ffffff'),
-      borderWidth: 0,
-    })
+    const color = hexToRgb(w.color || '#ffffff')
+    if (w.shape === 'ellipse') {
+      page.drawEllipse({
+        x: w.rect.x + w.rect.w / 2,
+        y: height - w.rect.y - w.rect.h / 2,
+        xScale: Math.max(w.rect.w / 2, 0.5),
+        yScale: Math.max(w.rect.h / 2, 0.5),
+        color,
+        borderWidth: 0,
+      })
+    } else {
+      page.drawRectangle({
+        x: w.rect.x,
+        y: height - w.rect.y - w.rect.h,
+        width: w.rect.w,
+        height: w.rect.h,
+        color,
+        borderWidth: 0,
+      })
+    }
   }
 }
 

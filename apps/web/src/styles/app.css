@@ -602,3 +602,84 @@ button.active { border-color: var(--accent-2); color: var(--accent-2); font-weig
   min-width: 2rem;
   white-space: pre-wrap;
 }
+
+
+.edit-toolbar-wrap { display: flex; flex-direction: column; border-bottom: 1px solid var(--line); background: #fff; }
+.edit-stylebar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.35rem 0.75rem 0.5rem;
+  background: color-mix(in srgb, var(--accent-2) 5%, #fff);
+  border-top: 1px dashed var(--line);
+}
+.edit-stylebar-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--accent-2);
+  margin-right: 0.25rem;
+}
+.edit-style-field {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.78rem;
+}
+.edit-style-field select,
+.edit-style-field input[type='number'] {
+  height: 1.7rem;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 0 0.35rem;
+  background: #fff;
+}
+.edit-style-field input[type='number'] { width: 3.2rem; }
+.edit-style-field input[type='color'] {
+  width: 1.55rem;
+  height: 1.55rem;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: transparent;
+  cursor: pointer;
+}
+.edit-style-shapes {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.78rem;
+}
+.edit-style-shapes button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.2rem 0.45rem;
+  font-size: 0.75rem;
+  background: #fff;
+}
+.edit-style-shapes button.active {
+  border-color: var(--accent-2);
+  background: color-mix(in srgb, var(--accent-2) 12%, #fff);
+}
+.shape-ellipse-ico {
+  width: 12px;
+  height: 10px;
+  border: 1.6px solid currentColor;
+  border-radius: 50%;
+  display: inline-block;
+}
+.edit-style-preview {
+  margin-left: auto;
+  font-size: 0.85rem;
+  padding: 0.15rem 0.5rem;
+}
+.modebar-ico {
+  display: inline-block;
+  min-width: 1em;
+  margin-right: 0.25rem;
+  opacity: 0.85;
+  font-size: 0.85em;
+}
+.edit-obj.shape.ellipse,
+.whiteout-box.is-ellipse { border-radius: 50%; }

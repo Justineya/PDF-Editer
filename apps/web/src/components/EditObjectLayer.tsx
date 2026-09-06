@@ -166,13 +166,14 @@ export function EditObjectLayer({
           return (
             <div
               key={w.id}
-              className={`edit-obj shape ${sel ? 'selected' : ''}`}
+              className={`edit-obj shape ${w.shape === 'ellipse' ? 'ellipse' : 'rect'} ${sel ? 'selected' : ''}`}
               style={{
                 left: w.rect.x * scale,
                 top: w.rect.y * scale,
                 width: w.rect.w * scale,
                 height: w.rect.h * scale,
                 background: w.color || '#ffffff',
+                borderRadius: w.shape === 'ellipse' ? '50%' : undefined,
               }}
               onPointerDown={onPointerDownMove(ref, w.rect, w.locked)}
               title="图形 · 单击选中，可拖动 / 删除"
@@ -240,6 +241,17 @@ export function EditObjectLayer({
                 color: o.color,
                 fontSize: o.fontSize * scale * 0.85,
                 fontWeight: o.bold ? 700 : 600,
+                fontFamily: (
+                  o.fontFamily === 'times'
+                    ? '"Times New Roman", Times, serif'
+                    : o.fontFamily === 'courier'
+                      ? '"Courier New", Courier, monospace'
+                      : o.fontFamily === 'serif-cjk'
+                        ? '"Noto Serif SC", "Songti SC", SimSun, serif'
+                        : o.fontFamily === 'sans-cjk'
+                          ? '"Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif'
+                          : 'Helvetica, Arial, sans-serif'
+                ),
               }}
               onPointerDown={editing ? undefined : onPointerDownMove(ref, rect, o.locked)}
               onDoubleClick={(e) => {

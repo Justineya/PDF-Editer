@@ -84,6 +84,8 @@ export interface OverlayText {
   text: string
   fontSize: number
   color: string
+  /** CSS / export font key: helvetica | times | courier | sans-cjk */
+  fontFamily?: string
   w?: number
   h?: number
   bold?: boolean
@@ -101,13 +103,24 @@ export interface OverlayImage {
   locked?: boolean
 }
 
-/** Visual whiteout / correction fluid (cover edit — not content-stream deletion) */
+/** Filled shape on the page (rectangle / ellipse). Formerly “whiteout”. */
 export interface WhiteoutRect {
   id: string
   pageIndex: number
   rect: Rect
   color: string
+  /** rect (default) or ellipse */
+  shape?: 'rect' | 'ellipse'
   locked?: boolean
+}
+
+/** Style chosen before placing text / shapes */
+export interface EditStyle {
+  fontFamily: string
+  fontSize: number
+  textColor: string
+  fillColor: string
+  shape: 'rect' | 'ellipse'
 }
 
 export interface WatermarkSpec {

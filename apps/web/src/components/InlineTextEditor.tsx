@@ -1,31 +1,38 @@
 import { useEffect, useRef } from 'react'
 import type { Rect } from '../types'
 import { IconCheck, IconClose } from './icons'
+import { FONT_OPTIONS } from './EditToolbar'
 
 type Props = {
   region: Rect
   scale: number
   initialText?: string
   placeholder?: string
-  /** White background under the editor (cover-edit mode) */
+  /** Deprecated cover mode — prefer false */
   withWhiteout?: boolean
+  fontFamily?: string
+  fontSize?: number
+  color?: string
   onCommit: (text: string) => void
   onCancel: () => void
 }
 
-/**
- * In-place text editor inside a selected page region (no window.prompt).
- */
+/** In-place text editor; uses the style chosen in the edit style bar. */
 export function InlineTextEditor({
   region,
   scale,
   initialText = '',
   placeholder = '输入文字…',
   withWhiteout = false,
+  fontFamily = 'helvetica',
+  fontSize,
+  color = '#1a2332',
   onCommit,
   onCancel,
 }: Props) {
   const ref = useRef<HTMLTextAreaElement>(null)
+  const css = FONT_OPTIONS.find((f) => f.id === fontFamily)?.css ?? FONT_OPTIONS[0].css
+  const size = fontSize ?? Math.max(12, Math.min(28, region.h * scale * 0.55))
 
   useEffect(() => {
     const el = ref.current
@@ -46,7 +53,7 @@ export function InlineTextEditor({
         left: region.x * scale,
         top: region.y * scale,
         width: Math.max(region.w * scale, 80),
-        minHeight: Math.max(region.h * scale, 28),
+        minHeight: Math.max(region.h * scale, size + 8),
       }}
       onMouseDown={(e) => e.stopPropagation()}
     >
@@ -54,7 +61,7 @@ export function InlineTextEditor({
         ref={ref}
         defaultValue={initialText}
         placeholder={placeholder}
-        style={{ fontSize: Math.max(12, Math.min(28, region.h * scale * 0.55)) }}
+        style={{ fontSize: size, fontFamily: css, color }}
         onKeyDown={(e) => {
           if (e.key === 'Escape') {
             e.preventDefault()
