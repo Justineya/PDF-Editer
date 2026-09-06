@@ -11,9 +11,9 @@ export type AppMode =
   | 'compare'
   | 'security'
 
-export type AnnotTool = 'highlight' | 'underline' | 'strike' | 'note' | 'ink' | 'stamp'
+export type AnnotTool = 'highlight' | 'underline' | 'strike' | 'note' | 'ink' | 'stamp' | 'area'
 
-export type EditTool = 'text' | 'image' | 'watermark' | 'cover'
+export type EditTool = 'select' | 'text' | 'whiteout' | 'image' | 'replace' | 'watermark'
 
 export interface Point {
   x: number
@@ -37,6 +37,7 @@ export interface AnnotationBase {
 export interface TextMarkupAnnotation extends AnnotationBase {
   kind: 'highlight' | 'underline' | 'strike'
   rects: Rect[]
+  /** Quote captured from text selection */
   text?: string
 }
 
@@ -76,6 +77,10 @@ export interface OverlayText {
   text: string
   fontSize: number
   color: string
+  w?: number
+  h?: number
+  bold?: boolean
+  locked?: boolean
 }
 
 export interface OverlayImage {
@@ -86,6 +91,16 @@ export interface OverlayImage {
   w: number
   h: number
   dataUrl: string
+  locked?: boolean
+}
+
+/** Visual whiteout / correction fluid (cover edit — not content-stream deletion) */
+export interface WhiteoutRect {
+  id: string
+  pageIndex: number
+  rect: Rect
+  color: string
+  locked?: boolean
 }
 
 export interface WatermarkSpec {
@@ -137,6 +152,7 @@ export interface DocumentModel {
   annotations: Annotation[]
   overlays: OverlayText[]
   images: OverlayImage[]
+  whiteouts: WhiteoutRect[]
   signatures: SignaturePlacement[]
   redactions: RedactionRect[]
   watermark?: WatermarkSpec
@@ -145,6 +161,11 @@ export interface DocumentModel {
   ocrTextByPage: Record<number, string>
   password?: string
 }
+
+export type EditObjectRef =
+  | { kind: 'text'; id: string }
+  | { kind: 'image'; id: string }
+  | { kind: 'whiteout'; id: string }
 
 export interface RecentFile {
   name: string

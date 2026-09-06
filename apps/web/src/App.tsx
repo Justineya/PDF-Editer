@@ -4,20 +4,18 @@ import {
   useMemo,
   useRef,
   useState,
-  type PointerEvent as ReactPointerEvent,
 } from 'react'
 import { v4 as uuid } from 'uuid'
 import type {
-  Annotation,
   AnnotTool,
   AppMode,
   DocumentModel,
-  OverlayImage,
-  OverlayText,
-  Point,
-  Rect,
-  SignaturePlacement,
+  EditTool,
+  EditObjectRef,
 } from './types'
+import { PageView } from './components/PageView'
+import { useDocHistory } from './hooks/useDocHistory'
+import type { PageSelection } from './pdf/selection'
 import {
   bytesToModel,
   fileToModel,
@@ -75,7 +73,7 @@ async function answerFromContext(question: string, context: string): Promise<str
 
 const MODE_LABEL: Record<AppMode, string> = {
   browse: '浏览',
-  select: '选择',
+  select: '选择文字',
   annotate: '批注',
   organize: '整理',
   edit: '轻编辑',
@@ -108,6 +106,7 @@ const ANNOT_LABEL: Record<AnnotTool, string> = {
   note: '便签',
   ink: '墨迹',
   stamp: '图章',
+  area: '区域',
 }
 
 function useToast() {
@@ -119,438 +118,6 @@ function useToast() {
   return { toast, show }
 }
 
-function AnnotLayer({
-  annotations,
-  overlays,
-  images,
-  signatures,
-  watermark,
-  coverRects,
-  scale,
-  pageIndex,
-}: {
-  annotations: Annotation[]
-  overlays: OverlayText[]
-  images: OverlayImage[]
-  signatures: SignaturePlacement[]
-  watermark?: DocumentModel['watermark']
-  coverRects: Rect[]
-  scale: number
-  pageIndex: number
-}) {
-  return (
-    <div className="annot-paint" style={{ pointerEvents: 'none' }}>
-      {annotations
-        .filter((a) => a.pageIndex === pageIndex)
-        .map((a) => {
-          if (a.kind === 'highlight' || a.kind === 'underline' || a.kind === 'strike') {
-            return a.rects.map((r, i) => (
-              <div
-                key={`${a.id}-${i}`}
-                className={`markup ${a.kind}`}
-                style={{
-                  left: r.x * scale,
-                  top:
-                    a.kind === 'highlight'
-                      ? r.y * scale
-                      : a.kind === 'underline'
-                        ? (r.y + r.h - 2) * scale
-                        : (r.y + r.h / 2) * scale,
-                  width: r.w * scale,
-                  height: a.kind === 'highlight' ? r.h * scale : 2,
-                  background: a.color,
-                }}
-              />
-            ))
-          }
-          if (a.kind === 'note') {
-            return (
-              <div
-                key={a.id}
-                className="markup note"
-                title={a.content}
-                style={{ left: a.x * scale, top: a.y * scale, background: a.color }}
-              >
-                📝
-              </div>
-            )
-          }
-          if (a.kind === 'ink') {
-            return (
-              <svg key={a.id} className="ink-svg">
-                {a.paths.map((path, i) => (
-                  <polyline
-                    key={i}
-                    fill="none"
-                    stroke={a.color}
-                    strokeWidth={a.width}
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    points={path.map((p) => `${p.x * scale},${p.y * scale}`).join(' ')}
-                  />
-                ))}
-              </svg>
-            )
-          }
-          if (a.kind === 'stamp') {
-            return (
-              <div
-                key={a.id}
-                className="markup stamp"
-                style={{
-                  left: a.x * scale,
-                  top: a.y * scale,
-                  width: a.w * scale,
-                  height: a.h * scale,
-                  borderColor: a.color,
-                  color: a.color,
-                }}
-              >
-                {a.label}
-              </div>
-            )
-          }
-          return null
-        })}
-      {overlays
-        .filter((o) => o.pageIndex === pageIndex)
-        .map((o) => (
-          <div
-            key={o.id}
-            className="overlay-text"
-            style={{
-              left: o.x * scale,
-              top: o.y * scale,
-              color: o.color,
-              fontSize: o.fontSize * scale * 0.85,
-            }}
-          >
-            {o.text}
-          </div>
-        ))}
-      {images
-        .filter((o) => o.pageIndex === pageIndex)
-        .map((o) => (
-          <img
-            key={o.id}
-            className="overlay-img"
-            src={o.dataUrl}
-            alt=""
-            style={{
-              left: o.x * scale,
-              top: o.y * scale,
-              width: o.w * scale,
-              height: o.h * scale,
-            }}
-          />
-        ))}
-      {signatures
-        .filter((o) => o.pageIndex === pageIndex)
-        .map((o) => (
-          <img
-            key={o.id}
-            className="sig-img"
-            src={o.dataUrl}
-            alt="签名"
-            style={{
-              left: o.x * scale,
-              top: o.y * scale,
-              width: o.w * scale,
-              height: o.h * scale,
-            }}
-          />
-        ))}
-      {coverRects.map((r, i) => (
-        <div
-          key={i}
-          className="redact-box"
-          style={{
-            left: r.x * scale,
-            top: r.y * scale,
-            width: r.w * scale,
-            height: r.h * scale,
-            opacity: 0.92,
-          }}
-        />
-      ))}
-      {watermark && (
-        <div
-          className="overlay-text is-wm"
-          style={{
-            left: '18%',
-            top: '42%',
-            fontSize: watermark.fontSize * scale * 0.55,
-            color: watermark.color,
-            opacity: watermark.opacity,
-            transform: `rotate(-${watermark.rotate}deg)`,
-          }}
-        >
-          {watermark.text}
-        </div>
-      )}
-    </div>
-  )
-}
-
-function PageView({
-  doc,
-  pageIndex,
-  scale,
-  mode,
-  annotTool,
-  inkWidth,
-  color,
-  selectedOrganize,
-  onSelectOrganize,
-  onAddAnnotation,
-  onAddOverlayText,
-  onAddCover,
-  onPlaceSignature,
-  signatureDataUrl,
-  editText,
-}: {
-  doc: DocumentModel
-  pageIndex: number
-  scale: number
-  mode: AppMode
-  annotTool: AnnotTool
-  inkWidth: number
-  color: string
-  selectedOrganize: number[]
-  onSelectOrganize: (pageIndex: number, multi: boolean) => void
-  onAddAnnotation: (ann: Annotation) => void
-  onAddOverlayText: (pageIndex: number, x: number, y: number, text: string) => void
-  onAddCover: (pageIndex: number, rect: Rect) => void
-  onPlaceSignature: (pageIndex: number, x: number, y: number) => void
-  signatureDataUrl: string | null
-  editText: string
-}) {
-  const canvasRef = useRef<HTMLCanvasElement>(null)
-  const overlayRef = useRef<HTMLDivElement>(null)
-  const drawing = useRef<Point[]>([])
-  const boxStart = useRef<Point | null>(null)
-  const [box, setBox] = useState<Rect | null>(null)
-  const [inkLive, setInkLive] = useState<Point[]>([])
-
-  useEffect(() => {
-    const pdf = getCachedPdf(doc.id)
-    const canvas = canvasRef.current
-    if (!pdf || !canvas) return
-    const handle = renderPageToCanvas(pdf, pageIndex, scale, canvas)
-    handle.promise.catch((err) => {
-      if (err && typeof err === 'object' && 'name' in err && (err as { name: string }).name === 'RenderingCancelledException') {
-        return
-      }
-      console.error(err)
-    })
-    return () => {
-      handle.cancel()
-    }
-  }, [doc.id, pageIndex, scale])
-
-  const toLocal = (e: ReactPointerEvent) => {
-    const el = overlayRef.current!
-    const rect = el.getBoundingClientRect()
-    return {
-      x: (e.clientX - rect.left) / scale,
-      y: (e.clientY - rect.top) / scale,
-    }
-  }
-
-  const onPointerDown = (e: ReactPointerEvent) => {
-    if (mode === 'browse') return
-    if (mode === 'organize') {
-      onSelectOrganize(pageIndex, e.metaKey || e.ctrlKey || e.shiftKey)
-      return
-    }
-    const p = toLocal(e)
-    if (mode === 'annotate' && annotTool === 'ink') {
-      drawing.current = [p]
-      setInkLive([p])
-      overlayRef.current?.setPointerCapture(e.pointerId)
-      return
-    }
-    if (
-      mode === 'annotate' &&
-      (annotTool === 'highlight' ||
-        annotTool === 'underline' ||
-        annotTool === 'strike' ||
-        annotTool === 'stamp')
-    ) {
-      boxStart.current = p
-      setBox({ x: p.x, y: p.y, w: 0, h: 0 })
-      overlayRef.current?.setPointerCapture(e.pointerId)
-      return
-    }
-    if (mode === 'annotate' && annotTool === 'note') {
-      const content = window.prompt('便签内容', '备注') || ''
-      onAddAnnotation({
-        id: uuid(),
-        kind: 'note',
-        pageIndex,
-        x: p.x,
-        y: p.y,
-        content,
-        color,
-        createdAt: Date.now(),
-      })
-      return
-    }
-    if (mode === 'select') {
-      boxStart.current = p
-      setBox({ x: p.x, y: p.y, w: 0, h: 0 })
-      overlayRef.current?.setPointerCapture(e.pointerId)
-      return
-    }
-    if (mode === 'edit') {
-      onAddOverlayText(pageIndex, p.x, p.y, editText || '文本')
-      return
-    }
-    if (mode === 'sign' && signatureDataUrl) {
-      onPlaceSignature(pageIndex, p.x, p.y)
-      return
-    }
-    if (mode === 'redact') {
-      boxStart.current = p
-      setBox({ x: p.x, y: p.y, w: 0, h: 0 })
-      overlayRef.current?.setPointerCapture(e.pointerId)
-    }
-  }
-
-  const onPointerMove = (e: ReactPointerEvent) => {
-    const p = toLocal(e)
-    if (mode === 'annotate' && annotTool === 'ink' && drawing.current.length) {
-      drawing.current.push(p)
-      setInkLive(drawing.current.slice())
-      return
-    }
-    if (boxStart.current) {
-      const s = boxStart.current
-      setBox({
-        x: Math.min(s.x, p.x),
-        y: Math.min(s.y, p.y),
-        w: Math.abs(p.x - s.x),
-        h: Math.abs(p.y - s.y),
-      })
-    }
-  }
-
-  const onPointerUp = () => {
-    if (mode === 'annotate' && annotTool === 'ink' && drawing.current.length > 1) {
-      onAddAnnotation({
-        id: uuid(),
-        kind: 'ink',
-        pageIndex,
-        paths: [drawing.current.slice()],
-        width: inkWidth,
-        color,
-        createdAt: Date.now(),
-      })
-    }
-    if (box && boxStart.current && box.w > 2 && box.h > 2) {
-      if (
-        (mode === 'annotate' || mode === 'select') &&
-        (annotTool === 'highlight' ||
-          annotTool === 'underline' ||
-          annotTool === 'strike' ||
-          mode === 'select')
-      ) {
-        const kind =
-          mode === 'select'
-            ? 'highlight'
-            : (annotTool as 'highlight' | 'underline' | 'strike')
-        onAddAnnotation({
-          id: uuid(),
-          kind,
-          pageIndex,
-          rects: [box],
-          color: mode === 'select' ? '#f2c94c' : color,
-          createdAt: Date.now(),
-        })
-      }
-      if (mode === 'annotate' && annotTool === 'stamp') {
-        onAddAnnotation({
-          id: uuid(),
-          kind: 'stamp',
-          pageIndex,
-          x: box.x,
-          y: box.y,
-          w: Math.max(box.w, 80),
-          h: Math.max(box.h, 36),
-          label: 'APPROVED',
-          color,
-          createdAt: Date.now(),
-        })
-      }
-      if (mode === 'redact') {
-        onAddCover(pageIndex, box)
-      }
-    }
-    drawing.current = []
-    boxStart.current = null
-    setBox(null)
-    setInkLive([])
-  }
-
-  const selected = selectedOrganize.includes(pageIndex)
-  const covers = doc.redactions.filter((r) => r.pageIndex === pageIndex).map((r) => r.rect)
-
-  return (
-    <div className={`page-wrap ${selected ? 'selected' : ''}`} data-page={pageIndex}>
-      <canvas ref={canvasRef} className="page-canvas" />
-      <AnnotLayer
-        annotations={doc.annotations}
-        overlays={doc.overlays}
-        images={doc.images}
-        signatures={doc.signatures}
-        watermark={doc.watermark}
-        coverRects={covers}
-        scale={scale}
-        pageIndex={pageIndex}
-      />
-      <div
-        ref={overlayRef}
-        className={`page-overlay ${mode}`}
-        onPointerDown={onPointerDown}
-        onPointerMove={onPointerMove}
-        onPointerUp={onPointerUp}
-        onClick={(e) => {
-          // 兜底：部分环境 pointer 序列不完整时仍可放置签名/文字
-          if (mode === 'sign' && signatureDataUrl) {
-            const p = toLocal(e as unknown as ReactPointerEvent)
-            onPlaceSignature(pageIndex, p.x, p.y)
-          }
-        }}
-      />
-      {inkLive.length > 1 && (
-        <svg className="live-ink">
-          <polyline
-            fill="none"
-            stroke={color}
-            strokeWidth={inkWidth}
-            strokeLinecap="round"
-            points={inkLive.map((p) => `${p.x * scale},${p.y * scale}`).join(' ')}
-          />
-        </svg>
-      )}
-      {box && (
-        <div
-          className="sel-box"
-          style={{
-            left: box.x * scale,
-            top: box.y * scale,
-            width: Math.max(box.w * scale, 1),
-            height: Math.max(box.h * scale, 1),
-            background: mode === 'redact' ? 'rgba(0,0,0,0.55)' : undefined,
-          }}
-        />
-      )}
-      <div className="muted" style={{ position: 'absolute', left: 8, bottom: -22 }}>
-        第 {pageIndex + 1} 页
-      </div>
-    </div>
-  )
-}
 
 export default function App() {
   const { toast, show } = useToast()
@@ -566,6 +133,10 @@ export default function App() {
   const [outline, setOutline] = useState<Array<{ title: string; pageIndex: number | null }>>([])
   const [formFields, setFormFields] = useState<Array<{ name: string; type: string }>>([])
   const [selectedPages, setSelectedPages] = useState<number[]>([])
+  const [editTool, setEditTool] = useState<EditTool>('select')
+  const [selectedEdit, setSelectedEdit] = useState<EditObjectRef | null>(null)
+  const [pendingSelection, setPendingSelection] = useState<PageSelection | null>(null)
+  const history = useDocHistory(activeId)
   const [editText, setEditText] = useState('ForgePDF')
   const [watermarkText, setWatermarkText] = useState('CONFIDENTIAL')
   const [signatureDataUrl, setSignatureDataUrl] = useState<string | null>(null)
@@ -587,9 +158,16 @@ export default function App() {
 
   const updateActive = useCallback(
     (updater: (d: DocumentModel) => DocumentModel) => {
-      setDocs((prev) => prev.map((d) => (d.id === activeId ? updater(d) : d)))
+      setDocs((prev) =>
+        prev.map((d) => {
+          if (d.id !== activeId) return d
+          const next = updater(d)
+          history.commit(next)
+          return next
+        }),
+      )
     },
-    [activeId],
+    [activeId, history],
   )
 
   const openFiles = async (files: FileList | File[]) => {
@@ -613,6 +191,7 @@ export default function App() {
       if (opened.length) {
         setDocs((d) => [...d, ...opened])
         setActiveId(opened[opened.length - 1].id)
+        history.replace(opened[opened.length - 1])
         setMode('browse')
       }
     } finally {
@@ -620,7 +199,26 @@ export default function App() {
     }
   }
 
+  
   useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!(e.metaKey || e.ctrlKey)) return
+      if (e.key.toLowerCase() === 'z' && !e.shiftKey) {
+        e.preventDefault()
+        const prev = history.undo()
+        if (prev) setDocs((ds) => ds.map((d) => (d.id === prev.id ? prev : d)))
+      }
+      if ((e.key.toLowerCase() === 'z' && e.shiftKey) || e.key.toLowerCase() === 'y') {
+        e.preventDefault()
+        const next = history.redo()
+        if (next) setDocs((ds) => ds.map((d) => (d.id === next.id ? next : d)))
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [history])
+
+useEffect(() => {
     if (!active) {
       setOutline([])
       setFormFields([])
@@ -1004,7 +602,15 @@ export default function App() {
             {MODE_LABEL[m]}
           </button>
         ))}
-        <div style={{ flex: 1 }} />
+        <button type="button" disabled={!history.canUndo} onClick={() => {
+            const prev = history.undo()
+            if (prev) setDocs((ds) => ds.map((d) => (d.id === prev.id ? prev : d)))
+          }}>撤销</button>
+          <button type="button" disabled={!history.canRedo} onClick={() => {
+            const next = history.redo()
+            if (next) setDocs((ds) => ds.map((d) => (d.id === next.id ? next : d)))
+          }}>重做</button>
+          <div style={{ flex: 1 }} />
         <input
           id="search-input"
           type="text"
@@ -1176,6 +782,9 @@ export default function App() {
                   selectedOrganize={selectedPages}
                   editText={editText}
                   signatureDataUrl={signatureDataUrl}
+                  editTool={editTool}
+                  selectedEdit={selectedEdit}
+                  pendingSelection={pendingSelection}
                   onSelectOrganize={(pageIndex, multi) => {
                     setSelectedPages((prev) => {
                       if (multi) {
@@ -1193,31 +802,7 @@ export default function App() {
                       annotations: [...d.annotations, ann],
                     }))
                   }
-                  onAddOverlayText={(pageIndex, x, y, text) =>
-                    updateActive((d) => ({
-                      ...d,
-                      dirty: true,
-                      overlays: [
-                        ...d.overlays,
-                        {
-                          id: uuid(),
-                          pageIndex,
-                          x,
-                          y,
-                          text,
-                          fontSize: 16,
-                          color: '#c45c26',
-                        },
-                      ],
-                    }))
-                  }
-                  onAddCover={(pageIndex, rect) =>
-                    updateActive((d) => ({
-                      ...d,
-                      dirty: true,
-                      redactions: [...d.redactions, { id: uuid(), pageIndex, rect }],
-                    }))
-                  }
+                  onMutateDoc={(updater) => updateActive(updater)}
                   onPlaceSignature={(pageIndex, x, y) => {
                     if (!signatureDataUrl) return
                     updateActive((d) => ({
@@ -1236,7 +821,14 @@ export default function App() {
                         },
                       ],
                     }))
-                    show('签名已放置，导出后写入 PDF')
+                  }}
+                  onSelectEdit={setSelectedEdit}
+                  onPendingSelection={setPendingSelection}
+                  onPickImage={(pageIndex, x, y) => {
+                    imageRef.current?.setAttribute('data-page', String(pageIndex))
+                    imageRef.current?.setAttribute('data-x', String(x))
+                    imageRef.current?.setAttribute('data-y', String(y))
+                    imageRef.current?.click()
                   }}
                 />
               ))}
@@ -1288,7 +880,13 @@ export default function App() {
             )}
 
             {mode === 'select' && (
-              <div className="muted">拖选区域即可高亮（框选）。更细的字形级选取后续增强。</div>
+              <div className="stack">
+                <div className="muted">拖选文字 → 浮动条：复制 / 高亮 / 下划线 / 删除线 / 覆盖替换</div>
+                {!pendingSelection && <div className="muted">尚未选中文字。扫描件请先 OCR。</div>}
+                {pendingSelection && (
+                  <div className="muted">已选：{pendingSelection.text.slice(0, 80)}</div>
+                )}
+              </div>
             )}
 
             {mode === 'annotate' && (
@@ -1422,7 +1020,27 @@ export default function App() {
 
             {mode === 'edit' && (
               <div className="stack">
-                <label className="field-label">点击页面放置文字</label>
+                <div className="row">
+                  {([
+                    ['select', '选择对象'],
+                    ['text', '文本框'],
+                    ['whiteout', '白盖'],
+                    ['image', '图片'],
+                    ['replace', '点选替换'],
+                    ['watermark', '水印'],
+                  ] as const).map(([k, label]) => (
+                    <button
+                      key={k}
+                      type="button"
+                      className={editTool === k ? 'active' : ''}
+                      onClick={() => setEditTool(k)}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+                <div className="muted">覆盖编辑：白盖+新字。点选替换会命中文本块。真正内容流改写需原生引擎。</div>
+                <label className="field-label">文本框默认内容</label>
                 <input
                   type="text"
                   value={editText}

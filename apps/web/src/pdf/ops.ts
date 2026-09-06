@@ -14,6 +14,7 @@ import type {
   RedactionRect,
   SignaturePlacement,
   WatermarkSpec,
+  WhiteoutRect,
 } from '../types'
 
 function hexToRgb(hex: string) {
@@ -244,6 +245,21 @@ export async function listFormFields(bytes: Uint8Array): Promise<Array<{ name: s
   }
 }
 
+
+function drawWhiteouts(page: PDFPage, pageIndex: number, whiteouts: WhiteoutRect[]) {
+  const { height } = page.getSize()
+  for (const w of whiteouts.filter((x) => x.pageIndex === pageIndex)) {
+    page.drawRectangle({
+      x: w.rect.x,
+      y: height - w.rect.y - w.rect.h,
+      width: w.rect.w,
+      height: w.rect.h,
+      color: hexToRgb(w.color || '#ffffff'),
+      borderWidth: 0,
+    })
+  }
+}
+
 export async function exportDocument(model: DocumentModel): Promise<Uint8Array> {
   let working = model.bytes
 
@@ -284,6 +300,7 @@ export async function exportDocument(model: DocumentModel): Promise<Uint8Array> 
     await drawOverlays(pdf, page, i, model.overlays, model.images, font)
     await drawSignatures(pdf, page, i, model.signatures)
     if (model.watermark?.text) drawWatermark(page, model.watermark, font)
+    drawWhiteouts(page, i, model.whiteouts ?? [])
     drawRedactions(page, i, model.redactions)
   }
 
@@ -401,6 +418,7 @@ export async function applyHardRedaction(
       annotations: [],
       overlays: [],
       images: [],
+      whiteouts: [],
       signatures: [],
       redactions,
       formValues: {},

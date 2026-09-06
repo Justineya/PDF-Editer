@@ -41,6 +41,7 @@ export async function bytesToModel(
     annotations: [],
     overlays: [],
     images: [],
+    whiteouts: [],
     signatures: [],
     redactions: [],
     formValues: {},
@@ -74,6 +75,7 @@ export async function reloadBytes(
     annotations: model.annotations.filter((a) => a.pageIndex < pdf.numPages),
     overlays: model.overlays.filter((o) => o.pageIndex < pdf.numPages),
     images: model.images.filter((o) => o.pageIndex < pdf.numPages),
+    whiteouts: (model.whiteouts ?? []).filter((o) => o.pageIndex < pdf.numPages),
     signatures: model.signatures.filter((o) => o.pageIndex < pdf.numPages),
     redactions: model.redactions.filter((o) => o.pageIndex < pdf.numPages),
   }
