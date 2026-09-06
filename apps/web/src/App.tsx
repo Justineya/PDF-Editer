@@ -26,6 +26,7 @@ import {
   openSampleForm,
   reloadBytes,
 } from './pdf/document'
+// bytesToModel used by desktop native open path
 import {
   destroyPdf,
   extractPageImageDataUrl,
@@ -55,6 +56,7 @@ import {
   pdfToImagesZip,
   pdfToMarkdown,
 } from './pdf/convert'
+import { desktopOpenPdfs, desktopSavePdf, isTauri } from './desktop'
 import './styles/app.css'
 
 async function ocrImageDataUrl(
@@ -173,6 +175,14 @@ export default function App() {
     [activeId, history],
   )
 
+  const openModels = async (opened: DocumentModel[]) => {
+    if (!opened.length) return
+    setDocs((d) => [...d, ...opened])
+    setActiveId(opened[opened.length - 1].id)
+    history.replace(opened[opened.length - 1])
+    setMode('browse')
+  }
+
   const openFiles = async (files: FileList | File[]) => {
     setBusy('正在打开…')
     try {
@@ -191,15 +201,40 @@ export default function App() {
           }
         }
       }
-      if (opened.length) {
-        setDocs((d) => [...d, ...opened])
-        setActiveId(opened[opened.length - 1].id)
-        history.replace(opened[opened.length - 1])
-        setMode('browse')
-      }
+      await openModels(opened)
     } finally {
       setBusy(null)
     }
+  }
+
+  /** Prefer native dialog on desktop; fall back to hidden file input on web. */
+  const requestOpen = async () => {
+    if (isTauri()) {
+      setBusy('正在打开…')
+      try {
+        const picked = await desktopOpenPdfs()
+        if (!picked?.length) return
+        const opened: DocumentModel[] = []
+        for (const p of picked) {
+          try {
+            opened.push(await bytesToModel(p.name, p.bytes))
+          } catch (e) {
+            const msg = e instanceof Error ? e.message : String(e)
+            if (msg.toLowerCase().includes('password')) {
+              const pw = window.prompt(`文件 ${p.name} 需要密码`) || undefined
+              if (pw) opened.push(await bytesToModel(p.name, p.bytes, pw))
+            } else {
+              show(`无法打开 ${p.name}: ${msg}`)
+            }
+          }
+        }
+        await openModels(opened)
+      } finally {
+        setBusy(null)
+      }
+      return
+    }
+    fileRef.current?.click()
   }
 
   
@@ -239,15 +274,22 @@ useEffect(() => {
     try {
       const bytes = await exportDocument(active)
       const base = active.name.replace(/\.pdf$/i, '')
-      downloadBytes(bytes, asCopy ? `${base}-副本.pdf` : `${base}-forge.pdf`)
-      if (active.annotations.length) {
+      const filename = asCopy ? `${base}-副本.pdf` : `${base}-forge.pdf`
+      if (isTauri()) {
+        const path = await desktopSavePdf(bytes, filename)
+        if (!path) return
+        show(`已保存到 ${path}`)
+      } else {
+        downloadBytes(bytes, filename)
+        show('已导出（批注/叠加/签名扁平化写入；表单写回 AcroForm）')
+      }
+      if (active.annotations.length && !isTauri()) {
         downloadText(
           JSON.stringify({ version: 1, annotations: active.annotations }, null, 2),
           `${base}.forge-annot.json`,
         )
       }
       updateActive((d) => ({ ...d, dirty: false }))
-      show('已导出（批注/叠加/签名扁平化写入；表单写回 AcroForm）')
     } catch (e) {
       show(`导出失败：${e instanceof Error ? e.message : e}`)
     } finally {
@@ -266,7 +308,7 @@ useEffect(() => {
       }
       if (meta && e.key.toLowerCase() === 'o') {
         e.preventDefault()
-        fileRef.current?.click()
+        void requestOpen()
       }
       if (meta && e.key.toLowerCase() === 's') {
         e.preventDefault()
@@ -366,7 +408,7 @@ useEffect(() => {
 
   const commands = useMemo(() => {
     const items: Array<{ id: string; label: string; run: () => void }> = [
-      { id: 'open', label: '打开 PDF', run: () => fileRef.current?.click() },
+      { id: 'open', label: '打开 PDF', run: () => void requestOpen() },
       { id: 'save', label: '导出保存', run: () => void saveActive(false) },
       { id: 'saveas', label: '另存副本', run: () => void saveActive(true) },
       {
@@ -573,7 +615,7 @@ useEffect(() => {
             </button>
           ))}
         </div>
-        <button type="button" onClick={() => fileRef.current?.click()}>
+        <button type="button" onClick={() => void requestOpen()}>
           打开
         </button>
         <button
@@ -598,7 +640,7 @@ useEffect(() => {
             id: 'file',
             label: '文件',
             items: [
-              { kind: 'item', id: 'open', label: '打开…', shortcut: '⌘O', onClick: () => fileRef.current?.click() },
+              { kind: 'item', id: 'open', label: '打开…', shortcut: '⌘O', onClick: () => void requestOpen() },
               {
                 kind: 'item',
                 id: 'export',
@@ -827,7 +869,7 @@ useEffect(() => {
               本地优先的 PDF 工作台：阅读、批注、页面整理、编辑、填表与签名。文件默认不出本机。
             </p>
             <div className="welcome-actions">
-              <button type="button" className="primary" onClick={() => fileRef.current?.click()}>
+              <button type="button" className="primary" onClick={() => void requestOpen()}>
                 打开 PDF
               </button>
               <button
@@ -859,7 +901,7 @@ useEffect(() => {
               {recent.length === 0 && <li className="muted">暂无记录 · Ctrl+O 打开</li>}
               {recent.map((r) => (
                 <li key={r.name + r.openedAt}>
-                  <button type="button" className="ghost" onClick={() => fileRef.current?.click()}>
+                  <button type="button" className="ghost" onClick={() => void requestOpen()}>
                     {r.name}
                   </button>
                   <span className="muted">{new Date(r.openedAt).toLocaleString()}</span>

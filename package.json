@@ -2,7 +2,7 @@
   "name": "forgepdf",
   "private": true,
   "version": "0.2.1",
-  "description": "ForgePDF \u2014 local-first PDF workbench",
+  "description": "ForgePDF — local-first PDF workbench",
   "scripts": {
     "dev": "pnpm --dir apps/web dev",
     "build": "pnpm --dir apps/web build",
@@ -12,7 +12,9 @@
     "smoke": "NODE_PATH=./apps/web/node_modules node ./scripts/smoke-ops.mjs",
     "accept": "cd apps/web && node ../../scripts/acceptance-run.mjs",
     "e2e": "node ./scripts/e2e-smoke.mjs",
-    "lint": "pnpm --dir apps/web lint"
+    "lint": "pnpm --dir apps/web lint",
+    "desktop": "pnpm --dir apps/web desktop",
+    "desktop:build": "pnpm --dir apps/web desktop:build"
   },
   "engines": {
     "node": ">=20"

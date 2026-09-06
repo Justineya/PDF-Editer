@@ -5,4 +5,5 @@ dist
 .vite
 apps/web/dist
 apps/web/node_modules
+apps/web/src-tauri/target
 artifacts/
