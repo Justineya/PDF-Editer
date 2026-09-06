@@ -1,6 +1,6 @@
 import { GlobalWorkerOptions, getDocument, type PDFDocumentProxy } from 'pdfjs-dist'
 
-// Prefer stable public URL (avoids Vite optimize-deps 504 blank renders)
+// Static worker in /public — avoids Vite dep-optimize 504 blank pages
 GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs'
 
 type PdfDoc = PDFDocumentProxy & { destroy?: () => Promise<void> | void }
@@ -25,13 +25,15 @@ export async function loadPdfDocument(
     await safeDestroy(existing)
     cache.delete(id)
   }
+  const copy = Uint8Array.from(data)
   const loadingTask = getDocument({
-    data: data.slice(),
+    data: copy,
     password,
     useSystemFonts: true,
     cMapUrl: '/cmaps/',
     cMapPacked: true,
     standardFontDataUrl: '/standard_fonts/',
+    isEvalSupported: false,
   })
   const pdf = (await loadingTask.promise) as PdfDoc
   cache.set(id, pdf)
@@ -50,15 +52,27 @@ export async function destroyPdf(id: string) {
   }
 }
 
-type CanvasRenderHandle = {
+export type CanvasRenderHandle = {
   cancel: () => void
   promise: Promise<{ width: number; height: number }>
 }
 
+function isCancelError(err: unknown) {
+  if (!err || typeof err !== 'object') return false
+  const name = 'name' in err ? String((err as { name: unknown }).name) : ''
+  const msg = 'message' in err ? String((err as { message: unknown }).message) : ''
+  return /cancel/i.test(name) || /cancel/i.test(msg)
+}
+
+function makeCancelError() {
+  const err = new Error('Rendering cancelled')
+  err.name = 'RenderingCancelledException'
+  return err
+}
+
 /**
- * Render a PDF page onto `canvas`.
- * Renders onto an offscreen canvas first, then blits — so React StrictMode /
- * cancel races cannot wipe a finished frame on the visible canvas.
+ * Render PDF page to canvas via offscreen buffer, then blit.
+ * Prevents React StrictMode cancel from wiping a finished frame.
  */
 export function renderPageToCanvas(
   pdf: PDFDocumentProxy,
@@ -72,9 +86,13 @@ export function renderPageToCanvas(
   const promise = (async () => {
     const page = await pdf.getPage(pageIndex + 1)
     if (cancelled) throw makeCancelError()
+
+    const outputScale = Math.min(typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1, 2)
     const viewport = page.getViewport({ scale })
-    const w = Math.max(1, Math.floor(viewport.width))
-    const h = Math.max(1, Math.floor(viewport.height))
+    const cssW = Math.max(1, Math.floor(viewport.width))
+    const cssH = Math.max(1, Math.floor(viewport.height))
+    const w = Math.max(1, Math.floor(cssW * outputScale))
+    const h = Math.max(1, Math.floor(cssH * outputScale))
 
     const off = document.createElement('canvas')
     off.width = w
@@ -84,10 +102,12 @@ export function renderPageToCanvas(
     offCtx.fillStyle = '#ffffff'
     offCtx.fillRect(0, 0, w, h)
 
+    const transform = outputScale !== 1 ? [outputScale, 0, 0, outputScale, 0, 0] : undefined
+    // pdf.js 4.x: canvasContext + viewport (+ optional transform)
     const task = page.render({
-      canvas: off,
       canvasContext: offCtx,
       viewport,
+      transform,
     })
     pdfTask = task
     try {
@@ -100,14 +120,16 @@ export function renderPageToCanvas(
 
     canvas.width = w
     canvas.height = h
+    canvas.style.width = `${cssW}px`
+    canvas.style.height = `${cssH}px`
     const ctx = canvas.getContext('2d', { alpha: false })
     if (!ctx) throw new Error('无法创建画布上下文')
     ctx.drawImage(off, 0, 0)
-    return { width: viewport.width, height: viewport.height }
+    return { width: cssW, height: cssH }
   })()
 
   return {
-    cancel: () => {
+    cancel() {
       cancelled = true
       try {
         pdfTask?.cancel()
@@ -119,25 +141,6 @@ export function renderPageToCanvas(
   }
 }
 
-function makeCancelError() {
-  const err = new Error('Rendering cancelled')
-  err.name = 'RenderingCancelledException'
-  return err
-}
-
-function isCancelError(err: unknown) {
-  if (!err || typeof err !== 'object') return false
-  const name = 'name' in err ? String((err as { name: unknown }).name) : ''
-  const msg = 'message' in err ? String((err as { message: unknown }).message) : ''
-  return (
-    name === 'RenderingCancelledException' ||
-    name === 'RenderingCancelledException' ||
-    /cancel/i.test(name) ||
-    /cancel/i.test(msg)
-  )
-}
-
-/** Await helper that swallows cancel errors (for fire-and-forget callers). */
 export async function renderPageToCanvasAwait(
   pdf: PDFDocumentProxy,
   pageIndex: number,
@@ -193,18 +196,16 @@ export async function getOutline(
         d = await pdf.getDestination(d)
       }
       if (!Array.isArray(d) || !d[0]) return null
-      const pageIndex = await pdf.getPageIndex(d[0])
-      return pageIndex
+      return await pdf.getPageIndex(d[0])
     } catch {
       return null
     }
   }
 
-  async function walk(items: typeof outline) {
+  async function walk(items: NonNullable<typeof outline>) {
     for (const item of items) {
-      const pageIndex = await resolvePage(item.dest)
-      result.push({ title: item.title, pageIndex })
-      if (item.items?.length) await walk(item.items as typeof outline)
+      result.push({ title: item.title, pageIndex: await resolvePage(item.dest) })
+      if (item.items?.length) await walk(item.items as NonNullable<typeof outline>)
     }
   }
   await walk(outline)
@@ -221,4 +222,3 @@ export async function extractPageImageDataUrl(
   if (!result) throw new Error('页面渲染被取消')
   return canvas.toDataURL('image/png')
 }
-
