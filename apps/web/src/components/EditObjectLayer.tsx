@@ -1,4 +1,4 @@
-import type { PointerEvent as ReactPointerEvent } from 'react'
+import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
 import type {
   EditObjectRef,
   OverlayImage,
@@ -28,7 +28,7 @@ function approxTextSize(o: OverlayText): { w: number; h: number } {
   return { w, h }
 }
 
-/** Interactive edit objects: select / drag / resize / inline text. */
+/** Interactive edit objects with true in-place text editing (no prompt). */
 export function EditObjectLayer({
   scale,
   pageIndex,
@@ -43,6 +43,8 @@ export function EditObjectLayer({
   onEditText,
   onDelete,
 }: Props) {
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const editRef = useRef<HTMLDivElement>(null)
   const drag = {
     current: null as null | { ref: EditObjectRef; ox: number; oy: number; start: Rect },
   }
@@ -55,12 +57,23 @@ export function EditObjectLayer({
     },
   }
 
+  useEffect(() => {
+    if (!editingId || !editRef.current) return
+    const el = editRef.current
+    el.focus()
+    const range = document.createRange()
+    range.selectNodeContents(el)
+    const sel = window.getSelection()
+    sel?.removeAllRanges()
+    sel?.addRange(range)
+  }, [editingId])
+
   const isSelected = (kind: EditObjectRef['kind'], id: string) =>
     selected?.kind === kind && selected.id === id
 
   const onPointerDownMove =
     (ref: EditObjectRef, rect: Rect, locked?: boolean) => (e: ReactPointerEvent) => {
-      if (!interactive || locked) return
+      if (!interactive || locked || editingId) return
       e.stopPropagation()
       e.preventDefault()
       onSelect(ref)
@@ -171,10 +184,11 @@ export function EditObjectLayer({
           const ref: EditObjectRef = { kind: 'text', id: o.id }
           const size = approxTextSize(o)
           const rect: Rect = { x: o.x, y: o.y, w: size.w, h: size.h }
+          const editing = editingId === o.id
           return (
             <div
               key={o.id}
-              className={`edit-obj text ${sel ? 'selected' : ''}`}
+              className={`edit-obj text ${sel ? 'selected' : ''} ${editing ? 'editing' : ''}`}
               style={{
                 left: o.x * scale,
                 top: o.y * scale,
@@ -184,15 +198,41 @@ export function EditObjectLayer({
                 fontSize: o.fontSize * scale * 0.85,
                 fontWeight: o.bold ? 700 : 600,
               }}
-              onPointerDown={onPointerDownMove(ref, rect, o.locked)}
+              onPointerDown={editing ? undefined : onPointerDownMove(ref, rect, o.locked)}
               onDoubleClick={(e) => {
                 e.stopPropagation()
-                const next = window.prompt('编辑文字', o.text)
-                if (next != null) onEditText(o.id, next)
+                onSelect(ref)
+                setEditingId(o.id)
               }}
             >
-              {o.text}
-              {sel && (
+              {editing ? (
+                <div
+                  ref={editRef}
+                  className="edit-obj-editor"
+                  contentEditable
+                  suppressContentEditableWarning
+                  onBlur={(e) => {
+                    const next = e.currentTarget.innerText.replace(/\u00a0/g, ' ')
+                    onEditText(o.id, next)
+                    setEditingId(null)
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Escape') {
+                      e.preventDefault()
+                      setEditingId(null)
+                    }
+                    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+                      e.preventDefault()
+                      ;(e.target as HTMLElement).blur()
+                    }
+                  }}
+                >
+                  {o.text}
+                </div>
+              ) : (
+                o.text
+              )}
+              {sel && !editing && (
                 <span className="resize-handle" onPointerDown={startResize(ref, rect, o.locked)} />
               )}
             </div>

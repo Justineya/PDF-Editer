@@ -13,7 +13,14 @@ export type AppMode =
 
 export type AnnotTool = 'highlight' | 'underline' | 'strike' | 'note' | 'ink' | 'stamp' | 'area'
 
-export type EditTool = 'select' | 'text' | 'whiteout' | 'image' | 'replace' | 'watermark'
+export type EditTool =
+  | 'region'
+  | 'select'
+  | 'text'
+  | 'whiteout'
+  | 'image'
+  | 'replace'
+  | 'watermark'
 
 export interface Point {
   x: number

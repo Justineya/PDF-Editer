@@ -14,6 +14,8 @@ import type {
   EditObjectRef,
 } from './types'
 import { PageView } from './components/PageView'
+import { EditToolbar, EDIT_TOOL_META } from './components/EditToolbar'
+import { MenuBar } from './components/MenuBar'
 import { useDocHistory } from './hooks/useDocHistory'
 import type { PageSelection } from './pdf/selection'
 import {
@@ -76,7 +78,7 @@ const MODE_LABEL: Record<AppMode, string> = {
   select: '选择文字',
   annotate: '批注',
   organize: '整理',
-  edit: '轻编辑',
+  edit: '编辑',
   form: '表单',
   sign: '签名',
   redact: '遮盖',
@@ -133,7 +135,7 @@ export default function App() {
   const [outline, setOutline] = useState<Array<{ title: string; pageIndex: number | null }>>([])
   const [formFields, setFormFields] = useState<Array<{ name: string; type: string }>>([])
   const [selectedPages, setSelectedPages] = useState<number[]>([])
-  const [editTool, setEditTool] = useState<EditTool>('select')
+  const [editTool, setEditTool] = useState<EditTool>('region')
   const [selectedEdit, setSelectedEdit] = useState<EditObjectRef | null>(null)
   const [pendingSelection, setPendingSelection] = useState<PageSelection | null>(null)
   const history = useDocHistory(activeId)
@@ -589,6 +591,156 @@ useEffect(() => {
         </button>
       </header>
 
+      <MenuBar
+        menus={[
+          {
+            id: 'file',
+            label: '文件',
+            items: [
+              { kind: 'item', id: 'open', label: '打开…', shortcut: '⌘O', onClick: () => fileRef.current?.click() },
+              {
+                kind: 'item',
+                id: 'export',
+                label: '导出保存',
+                shortcut: '⌘S',
+                disabled: !active,
+                onClick: () => void saveActive(false),
+              },
+              {
+                kind: 'item',
+                id: 'saveas',
+                label: '另存副本…',
+                disabled: !active,
+                onClick: () => void saveActive(true),
+              },
+              { kind: 'sep' },
+              {
+                kind: 'item',
+                id: 'blank',
+                label: '新建空白 PDF',
+                onClick: () =>
+                  void openBlank().then((m) => {
+                    setDocs((d) => [...d, m])
+                    setActiveId(m.id)
+                  }),
+              },
+            ],
+          },
+          {
+            id: 'edit-menu',
+            label: '编辑',
+            items: [
+              {
+                kind: 'item',
+                id: 'undo',
+                label: '撤销',
+                shortcut: '⌘Z',
+                disabled: !history.canUndo,
+                onClick: () => {
+                  const prev = history.undo()
+                  if (prev) setDocs((ds) => ds.map((d) => (d.id === prev.id ? prev : d)))
+                },
+              },
+              {
+                kind: 'item',
+                id: 'redo',
+                label: '重做',
+                shortcut: '⇧⌘Z',
+                disabled: !history.canRedo,
+                onClick: () => {
+                  const next = history.redo()
+                  if (next) setDocs((ds) => ds.map((d) => (d.id === next.id ? next : d)))
+                },
+              },
+              { kind: 'sep' },
+              {
+                kind: 'item',
+                id: 'mode-edit',
+                label: '进入编辑模式',
+                disabled: !active,
+                onClick: () => {
+                  setMode('edit')
+                  setEditTool('region')
+                },
+              },
+              {
+                kind: 'item',
+                id: 'tool-region',
+                label: '框选区域…',
+                disabled: !active,
+                onClick: () => {
+                  setMode('edit')
+                  setEditTool('region')
+                },
+              },
+              {
+                kind: 'item',
+                id: 'tool-text',
+                label: '添加文字',
+                disabled: !active,
+                onClick: () => {
+                  setMode('edit')
+                  setEditTool('text')
+                },
+              },
+              {
+                kind: 'item',
+                id: 'tool-whiteout',
+                label: '白盖清除',
+                disabled: !active,
+                onClick: () => {
+                  setMode('edit')
+                  setEditTool('whiteout')
+                },
+              },
+              {
+                kind: 'item',
+                id: 'insert-image',
+                label: '插入图片…',
+                disabled: !active,
+                onClick: () => {
+                  setMode('edit')
+                  setEditTool('image')
+                  imageRef.current?.click()
+                },
+              },
+            ],
+          },
+          {
+            id: 'view',
+            label: '视图',
+            items: [
+              {
+                kind: 'item',
+                id: 'zoom-out',
+                label: '缩小',
+                disabled: !active,
+                onClick: () => setScale((s) => Math.max(0.5, Number((s - 0.1).toFixed(2)))),
+              },
+              {
+                kind: 'item',
+                id: 'zoom-in',
+                label: '放大',
+                disabled: !active,
+                onClick: () => setScale((s) => Math.min(3, Number((s + 0.1).toFixed(2)))),
+              },
+              {
+                kind: 'item',
+                id: 'zoom-100',
+                label: '实际大小 100%',
+                disabled: !active,
+                onClick: () => setScale(1),
+              },
+            ],
+          },
+        ]}
+        trailing={
+          <span className="muted menubar-doc">
+            {active ? `${active.name}${active.dirty ? ' •' : ''}` : '未打开文档'}
+          </span>
+        }
+      />
+
       <div className="modebar">
         {PRIMARY_MODES.map((m) => (
           <button
@@ -596,21 +748,36 @@ useEffect(() => {
             type="button"
             className={mode === m ? 'active' : ''}
             disabled={!active}
-            onClick={() => setMode(m)}
+            onClick={() => {
+              setMode(m)
+              if (m === 'edit') setEditTool('region')
+            }}
             title={m}
           >
             {MODE_LABEL[m]}
           </button>
         ))}
-        <button type="button" disabled={!history.canUndo} onClick={() => {
+        <button
+          type="button"
+          disabled={!history.canUndo}
+          onClick={() => {
             const prev = history.undo()
             if (prev) setDocs((ds) => ds.map((d) => (d.id === prev.id ? prev : d)))
-          }}>撤销</button>
-          <button type="button" disabled={!history.canRedo} onClick={() => {
+          }}
+        >
+          撤销
+        </button>
+        <button
+          type="button"
+          disabled={!history.canRedo}
+          onClick={() => {
             const next = history.redo()
             if (next) setDocs((ds) => ds.map((d) => (d.id === next.id ? next : d)))
-          }}>重做</button>
-          <div style={{ flex: 1 }} />
+          }}
+        >
+          重做
+        </button>
+        <div style={{ flex: 1 }} />
         <input
           id="search-input"
           type="text"
@@ -640,6 +807,10 @@ useEffect(() => {
         </button>
       </div>
 
+      {mode === 'edit' && active && (
+        <EditToolbar editTool={editTool} onChange={setEditTool} />
+      )}
+
       {!active ? (
         <div
           className="welcome"
@@ -652,7 +823,7 @@ useEffect(() => {
           <div className="welcome-card">
             <h1>ForgePDF</h1>
             <p className="lead">
-              本地优先的 PDF 工作台：阅读、批注、页面整理、轻编辑、填表与签名。文件默认不出本机。
+              本地优先的 PDF 工作台：阅读、批注、页面整理、编辑、填表与签名。文件默认不出本机。
             </p>
             <div className="welcome-actions">
               <button type="button" className="primary" onClick={() => fileRef.current?.click()}>
@@ -1020,35 +1191,28 @@ useEffect(() => {
 
             {mode === 'edit' && (
               <div className="stack">
-                <div className="row">
-                  {([
-                    ['select', '选择对象'],
-                    ['text', '文本框'],
-                    ['whiteout', '白盖'],
-                    ['image', '图片'],
-                    ['replace', '点选替换'],
-                    ['watermark', '水印'],
-                  ] as const).map(([k, label]) => (
-                    <button
-                      key={k}
-                      type="button"
-                      className={editTool === k ? 'active' : ''}
-                      onClick={() => setEditTool(k)}
-                    >
-                      {label}
-                    </button>
-                  ))}
+                <div className="edit-inspector-hero">
+                  <strong>{EDIT_TOOL_META[editTool].label}</strong>
+                  <p className="muted">{EDIT_TOOL_META[editTool].hint}</p>
                 </div>
-                <div className="muted">覆盖编辑：白盖+新字。点选替换会命中文本块。真正内容流改写需原生引擎。</div>
-                <label className="field-label">文本框默认内容</label>
+                {editTool === 'region' && (
+                  <ol className="edit-steps muted">
+                    <li>在页面上拖拽框选一块区域</li>
+                    <li>在弹出菜单中选「添加文字 / 覆盖改字 / 白盖」</li>
+                    <li>就地输入后点「完成」</li>
+                  </ol>
+                )}
+                <label className="field-label">默认文字（可选预填）</label>
                 <input
                   type="text"
                   value={editText}
                   onChange={(e) => setEditText(e.target.value)}
+                  placeholder="框选后可修改"
                 />
                 <button type="button" onClick={() => imageRef.current?.click()}>
-                  插入图片
+                  插入图片…
                 </button>
+                <div className="divider" />
                 <label className="field-label">水印文字</label>
                 <input
                   type="text"
@@ -1076,8 +1240,14 @@ useEffect(() => {
                 <button type="button" onClick={() => setMode('redact')}>
                   视觉遮盖工具…
                 </button>
-                <div className="muted">叠加层编辑；遮盖 ≠ 密文删除(红act)。导出时写入页面。</div>
+                <div className="muted">
+                  当前为覆盖编辑（白盖 + 新字叠层），不是 Acrobat 级内容流改写。导出时写入页面。
+                </div>
                 <div className="divider" />
+                <h4 className="field-label">本页对象</h4>
+                {active.overlays.length === 0 && (active.whiteouts?.length ?? 0) === 0 && (
+                  <div className="muted">尚无编辑对象 · 用「框选区域」开始</div>
+                )}
                 {active.overlays.map((o) => (
                   <div key={o.id} className="list-item">
                     文本 p{o.pageIndex + 1}: {o.text}

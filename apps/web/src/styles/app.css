@@ -350,3 +350,203 @@ button.active { border-color: var(--accent-2); color: var(--accent-2); font-weig
   font-size: 0.78rem;
 }
 .page-num { position: absolute; left: 8px; bottom: -22px; }
+
+/* —— Menubar —— */
+.menubar {
+  display: flex;
+  align-items: center;
+  gap: 0.15rem;
+  padding: 0 0.5rem;
+  min-height: 28px;
+  background: color-mix(in srgb, var(--panel) 70%, #fff);
+  border-bottom: 1px solid var(--line);
+  font-size: 0.82rem;
+}
+.menubar-item { position: relative; }
+.menubar-trigger {
+  border: none;
+  background: transparent;
+  padding: 0.25rem 0.55rem;
+  border-radius: 4px;
+  color: var(--ink);
+}
+.menubar-item.open .menubar-trigger,
+.menubar-trigger:hover { background: rgba(26, 35, 50, 0.06); }
+.menubar-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  z-index: 40;
+  min-width: 200px;
+  padding: 0.3rem;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  box-shadow: var(--shadow);
+  animation: rise 0.12s ease;
+}
+.menubar-option {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.5rem;
+  border: none;
+  background: transparent;
+  border-radius: 4px;
+  padding: 0.35rem 0.55rem;
+  text-align: left;
+}
+.menubar-option:hover:not(:disabled) { background: rgba(47, 93, 80, 0.1); }
+.menubar-option kbd {
+  font-size: 0.7rem;
+  color: var(--muted);
+  font-family: inherit;
+}
+.menubar-sep {
+  height: 1px;
+  margin: 0.25rem 0.35rem;
+  background: var(--line);
+}
+.menubar-trailing { margin-left: auto; padding-right: 0.35rem; }
+.menubar-doc { font-size: 0.75rem; }
+
+/* —— Edit icon toolbar —— */
+.edit-toolbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  padding: 0.35rem 0.75rem;
+  background: #fff;
+  border-bottom: 1px solid var(--line);
+}
+.edit-toolbar-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--accent-2);
+  margin-right: 0.35rem;
+}
+.edit-toolbar .tool-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.3rem 0.55rem;
+  font-size: 0.8rem;
+  background: transparent;
+}
+.edit-toolbar .tool-btn.active {
+  background: color-mix(in srgb, var(--accent-2) 12%, #fff);
+  border-color: var(--accent-2);
+}
+.edit-toolbar-hint {
+  flex: 1 1 180px;
+  font-size: 0.75rem;
+  margin-left: 0.4rem;
+  min-width: 0;
+}
+
+/* —— WPS-style region menu + inline editor —— */
+.region-preview {
+  position: absolute;
+  z-index: 12;
+  border: 1.5px solid var(--accent-2);
+  background: rgba(47, 93, 80, 0.08);
+  pointer-events: none;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.5) inset;
+}
+.region-action-menu {
+  position: absolute;
+  z-index: 22;
+  display: flex;
+  align-items: center;
+  gap: 0.15rem;
+  padding: 0.3rem;
+  background: #1a2332;
+  color: #fff;
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+  animation: rise 0.16s ease;
+}
+.region-action-menu button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  background: transparent;
+  border-color: rgba(255, 255, 255, 0.2);
+  color: #fff;
+  padding: 0.28rem 0.5rem;
+  font-size: 0.78rem;
+  white-space: nowrap;
+}
+.region-action-menu button:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.35);
+}
+.region-action-menu button.ghost { border-color: transparent; padding: 0.28rem; }
+
+.inline-text-editor {
+  position: absolute;
+  z-index: 24;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.2rem;
+  background: rgba(255, 255, 255, 0.96);
+  border: 1.5px solid var(--accent);
+  border-radius: 4px;
+  box-shadow: var(--shadow);
+  animation: rise 0.14s ease;
+}
+.inline-text-editor.with-whiteout {
+  background: #fff;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.06), var(--shadow);
+}
+.inline-text-editor textarea {
+  width: 100%;
+  min-height: 1.4em;
+  flex: 1;
+  border: none;
+  outline: none;
+  resize: none;
+  background: transparent;
+  color: var(--ink);
+  line-height: 1.25;
+  padding: 0.15rem 0.25rem;
+  font-family: inherit;
+}
+.inline-text-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.2rem;
+}
+.inline-text-actions button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.75rem;
+  padding: 0.2rem 0.45rem;
+}
+
+.edit-inspector-hero strong { display: block; font-size: 0.95rem; }
+.edit-inspector-hero p { margin: 0.25rem 0 0; font-size: 0.8rem; line-height: 1.35; }
+.edit-steps {
+  margin: 0;
+  padding-left: 1.15rem;
+  font-size: 0.8rem;
+  line-height: 1.45;
+}
+.edit-obj.text.editing {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+  cursor: text;
+  background: rgba(255, 255, 255, 0.92);
+  min-width: 2rem;
+}
+.edit-obj-editor {
+  outline: none;
+  min-width: 2rem;
+  white-space: pre-wrap;
+}

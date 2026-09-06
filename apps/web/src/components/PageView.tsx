@@ -27,6 +27,8 @@ import { getPageTextItemRects, hitTestTextItem } from '../pdf/textLayer'
 import { PageTextLayer } from './PageTextLayer'
 import { SelectionToolbar } from './SelectionToolbar'
 import { EditObjectLayer } from './EditObjectLayer'
+import { RegionActionMenu, type RegionAction } from './RegionActionMenu'
+import { InlineTextEditor } from './InlineTextEditor'
 
 function AnnotPaint(props: {
   doc: DocumentModel
@@ -263,6 +265,12 @@ export function PageView({
   const [inkLive, setInkLive] = useState<Point[]>([])
   const [hasText, setHasText] = useState(true)
   const [pdf, setPdf] = useState<PDFDocumentProxy | null>(null)
+  const [pendingRegion, setPendingRegion] = useState<Rect | null>(null)
+  const [inlineEdit, setInlineEdit] = useState<null | {
+    region: Rect
+    withWhiteout: boolean
+    seed?: string
+  }>(null)
 
   useEffect(() => {
     setPdf(getCachedPdf(doc.id) ?? null)
@@ -428,24 +436,20 @@ export function PageView({
       return
     }
     if (mode === 'edit' && editTool === 'text') {
-      const text = window.prompt('输入文字', editText || '文本')
-      if (text == null) return
-      onMutateDoc((d) => ({
-        ...d,
-        dirty: true,
-        overlays: [
-          ...d.overlays,
-          {
-            id: uuid(),
-            pageIndex,
-            x: p.x,
-            y: p.y,
-            text: text || '文本',
-            fontSize: 16,
-            color: '#1a2332',
-          },
-        ],
-      }))
+      setPendingRegion(null)
+      setInlineEdit({
+        region: { x: p.x, y: p.y, w: 160, h: 28 },
+        withWhiteout: false,
+        seed: editText || '',
+      })
+      return
+    }
+    if (mode === 'edit' && editTool === 'region') {
+      boxStart.current = p
+      setBox({ x: p.x, y: p.y, w: 0, h: 0 })
+      setPendingRegion(null)
+      setInlineEdit(null)
+      overlayRef.current?.setPointerCapture(e.pointerId)
       return
     }
     if (mode === 'edit' && editTool === 'image') {
@@ -468,30 +472,12 @@ export function PageView({
           window.alert('未命中文本块。也可先切到「选择」拖选后点覆盖替换。')
           return
         }
-        const next = window.prompt('替换文本（白盖+重绘）', hit.str)
-        if (next == null) return
-        onMutateDoc((d) => ({
-          ...d,
-          dirty: true,
-          whiteouts: [
-            ...(d.whiteouts ?? []),
-            { id: uuid(), pageIndex, rect: hit.rect, color: '#ffffff' },
-          ],
-          overlays: [
-            ...d.overlays,
-            {
-              id: uuid(),
-              pageIndex,
-              x: hit.rect.x,
-              y: hit.rect.y,
-              text: next,
-              fontSize: Math.max(10, hit.rect.h * 0.85),
-              color: '#1a2332',
-              w: hit.rect.w,
-              h: hit.rect.h,
-            },
-          ],
-        }))
+        setPendingRegion(null)
+        setInlineEdit({
+          region: { ...hit.rect, h: Math.max(hit.rect.h, 16), w: Math.max(hit.rect.w, 40) },
+          withWhiteout: true,
+          seed: hit.str,
+        })
       })()
       return
     }
@@ -574,6 +560,14 @@ export function PageView({
           createdAt: Date.now(),
         })
       }
+      if (mode === 'edit' && editTool === 'region') {
+        setPendingRegion({ ...box })
+        setBox(null)
+        boxStart.current = null
+        setInkLive([])
+        drawing.current = []
+        return
+      }
       if (mode === 'edit' && editTool === 'whiteout') {
         onMutateDoc((d) => ({
           ...d,
@@ -628,7 +622,7 @@ export function PageView({
         <EditObjectLayer
           scale={scale}
           pageIndex={pageIndex}
-          interactive={editTool === 'select'}
+          interactive={editTool === 'select' || editTool === 'region'}
           overlays={doc.overlays}
           images={doc.images}
           whiteouts={doc.whiteouts ?? []}
@@ -744,7 +738,9 @@ export function PageView({
                 ? 'rgba(0,0,0,0.55)'
                 : editTool === 'whiteout'
                   ? 'rgba(255,255,255,0.75)'
-                  : undefined,
+                  : editTool === 'region'
+                    ? 'rgba(47,93,80,0.12)'
+                    : undefined,
           }}
         />
       )}
@@ -759,6 +755,96 @@ export function PageView({
           onDismiss={() => {
             clearDomSelection()
             onPendingSelection(null)
+          }}
+        />
+      )}
+      {pendingRegion && mode === 'edit' && !inlineEdit && (
+        <>
+          <div
+            className="region-preview"
+            style={{
+              left: pendingRegion.x * scale,
+              top: pendingRegion.y * scale,
+              width: pendingRegion.w * scale,
+              height: pendingRegion.h * scale,
+            }}
+          />
+          <RegionActionMenu
+            region={pendingRegion}
+            scale={scale}
+            onAction={(action: RegionAction) => {
+              const region = pendingRegion
+              if (action === 'cancel') {
+                setPendingRegion(null)
+                return
+              }
+              if (action === 'whiteout') {
+                onMutateDoc((d) => ({
+                  ...d,
+                  dirty: true,
+                  whiteouts: [
+                    ...(d.whiteouts ?? []),
+                    { id: uuid(), pageIndex, rect: region, color: '#ffffff' },
+                  ],
+                }))
+                setPendingRegion(null)
+                return
+              }
+              if (action === 'insert-image') {
+                setPendingRegion(null)
+                onPickImage?.(pageIndex, region.x, region.y)
+                return
+              }
+              if (action === 'add-text') {
+                setInlineEdit({ region, withWhiteout: false, seed: editText || '' })
+                return
+              }
+              if (action === 'cover-edit') {
+                setInlineEdit({ region, withWhiteout: true, seed: editText || '' })
+              }
+            }}
+          />
+        </>
+      )}
+      {inlineEdit && mode === 'edit' && (
+        <InlineTextEditor
+          region={inlineEdit.region}
+          scale={scale}
+          initialText={inlineEdit.seed}
+          withWhiteout={inlineEdit.withWhiteout}
+          onCancel={() => {
+            setInlineEdit(null)
+            setPendingRegion(null)
+          }}
+          onCommit={(text) => {
+            const region = inlineEdit.region
+            const content = text.trim() || ' '
+            onMutateDoc((d) => ({
+              ...d,
+              dirty: true,
+              whiteouts: inlineEdit.withWhiteout
+                ? [
+                    ...(d.whiteouts ?? []),
+                    { id: uuid(), pageIndex, rect: region, color: '#ffffff' },
+                  ]
+                : d.whiteouts ?? [],
+              overlays: [
+                ...d.overlays,
+                {
+                  id: uuid(),
+                  pageIndex,
+                  x: region.x + 2,
+                  y: region.y + 2,
+                  text: content,
+                  fontSize: Math.max(12, Math.min(28, region.h * 0.7)),
+                  color: '#1a2332',
+                  w: Math.max(region.w - 4, 40),
+                  h: Math.max(region.h - 4, 18),
+                },
+              ],
+            }))
+            setInlineEdit(null)
+            setPendingRegion(null)
           }}
         />
       )}
