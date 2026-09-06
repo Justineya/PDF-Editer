@@ -14,11 +14,11 @@ export type AppMode =
 export type AnnotTool = 'highlight' | 'underline' | 'strike' | 'note' | 'ink' | 'stamp' | 'area'
 
 export type EditTool =
-  | 'region'
   | 'select'
+  | 'shape'
   | 'text'
-  | 'whiteout'
   | 'image'
+  | 'region'
   | 'replace'
   | 'watermark'
 

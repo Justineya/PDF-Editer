@@ -10,6 +10,7 @@ import type {
 type Props = {
   scale: number
   pageIndex: number
+  /** Prefer true for every edit tool so objects stay clickable. */
   interactive: boolean
   overlays: OverlayText[]
   images: OverlayImage[]
@@ -28,7 +29,10 @@ function approxTextSize(o: OverlayText): { w: number; h: number } {
   return { w, h }
 }
 
-/** Interactive edit objects with true in-place text editing (no prompt). */
+/**
+ * Click selects, double-click edits text, chrome Delete removes.
+ * Objects stay above the page overlay so they can be selected anytime.
+ */
 export function EditObjectLayer({
   scale,
   pageIndex,
@@ -45,17 +49,18 @@ export function EditObjectLayer({
 }: Props) {
   const [editingId, setEditingId] = useState<string | null>(null)
   const editRef = useRef<HTMLDivElement>(null)
-  const drag = {
-    current: null as null | { ref: EditObjectRef; ox: number; oy: number; start: Rect },
-  }
-  const resize = {
-    current: null as null | {
-      ref: EditObjectRef
-      start: Rect
-      originX: number
-      originY: number
-    },
-  }
+  const drag = useRef<null | {
+    ref: EditObjectRef
+    ox: number
+    oy: number
+    start: Rect
+  }>(null)
+  const resize = useRef<null | {
+    ref: EditObjectRef
+    start: Rect
+    originX: number
+    originY: number
+  }>(null)
 
   useEffect(() => {
     if (!editingId || !editRef.current) return
@@ -67,6 +72,11 @@ export function EditObjectLayer({
     sel?.removeAllRanges()
     sel?.addRange(range)
   }, [editingId])
+
+  useEffect(() => {
+    if (!editingId) return
+    if (selected?.kind !== 'text' || selected.id !== editingId) setEditingId(null)
+  }, [selected, editingId])
 
   const isSelected = (kind: EditObjectRef['kind'], id: string) =>
     selected?.kind === kind && selected.id === id
@@ -111,9 +121,35 @@ export function EditObjectLayer({
       if (!interactive || locked) return
       e.stopPropagation()
       e.preventDefault()
+      onSelect(ref)
       ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
       resize.current = { ref, start: { ...rect }, originX: e.clientX, originY: e.clientY }
     }
+
+  const chrome = (ref: EditObjectRef, opts?: { editText?: boolean }) => (
+    <div className="edit-obj-chrome" onPointerDown={(e) => e.stopPropagation()}>
+      {opts?.editText && (
+        <button
+          type="button"
+          className="edit-obj-chrome-btn"
+          onClick={() => {
+            onSelect(ref)
+            setEditingId(ref.id)
+          }}
+        >
+          编辑
+        </button>
+      )}
+      <button
+        type="button"
+        className="edit-obj-chrome-btn danger"
+        onClick={() => onDelete(ref)}
+        title="删除 (Delete)"
+      >
+        删除
+      </button>
+    </div>
+  )
 
   return (
     <div
@@ -130,7 +166,7 @@ export function EditObjectLayer({
           return (
             <div
               key={w.id}
-              className={`edit-obj whiteout ${sel ? 'selected' : ''}`}
+              className={`edit-obj shape ${sel ? 'selected' : ''}`}
               style={{
                 left: w.rect.x * scale,
                 top: w.rect.y * scale,
@@ -139,13 +175,16 @@ export function EditObjectLayer({
                 background: w.color || '#ffffff',
               }}
               onPointerDown={onPointerDownMove(ref, w.rect, w.locked)}
-              onDoubleClick={(e) => {
-                e.stopPropagation()
-                if (confirm('删除此白盖？')) onDelete(ref)
-              }}
+              title="图形 · 单击选中，可拖动 / 删除"
             >
               {sel && (
-                <span className="resize-handle" onPointerDown={startResize(ref, w.rect, w.locked)} />
+                <>
+                  {chrome(ref)}
+                  <span
+                    className="resize-handle"
+                    onPointerDown={startResize(ref, w.rect, w.locked)}
+                  />
+                </>
               )}
             </div>
           )
@@ -168,10 +207,14 @@ export function EditObjectLayer({
                 height: o.h * scale,
               }}
               onPointerDown={onPointerDownMove(ref, rect, o.locked)}
+              title="图片 · 单击选中，可拖动 / 删除"
             >
               <img src={o.dataUrl} alt="" draggable={false} />
               {sel && (
-                <span className="resize-handle" onPointerDown={startResize(ref, rect, o.locked)} />
+                <>
+                  {chrome(ref)}
+                  <span className="resize-handle" onPointerDown={startResize(ref, rect, o.locked)} />
+                </>
               )}
             </div>
           )
@@ -204,6 +247,7 @@ export function EditObjectLayer({
                 onSelect(ref)
                 setEditingId(o.id)
               }}
+              title="文字 · 单击选中，双击编辑"
             >
               {editing ? (
                 <div
@@ -225,7 +269,9 @@ export function EditObjectLayer({
                       e.preventDefault()
                       ;(e.target as HTMLElement).blur()
                     }
+                    e.stopPropagation()
                   }}
+                  onPointerDown={(e) => e.stopPropagation()}
                 >
                   {o.text}
                 </div>
@@ -233,7 +279,10 @@ export function EditObjectLayer({
                 o.text
               )}
               {sel && !editing && (
-                <span className="resize-handle" onPointerDown={startResize(ref, rect, o.locked)} />
+                <>
+                  {chrome(ref, { editText: true })}
+                  <span className="resize-handle" onPointerDown={startResize(ref, rect, o.locked)} />
+                </>
               )}
             </div>
           )

@@ -38,6 +38,15 @@ export function IconWhiteout({ size = 16, className }: IconProps) {
   )
 }
 
+/** Filled rectangle / shape tool */
+export function IconShape({ size = 16, className }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" className={className} aria-hidden>
+      <rect x="4" y="5" width="16" height="14" rx="1.5" fill="currentColor" opacity="0.35" stroke="currentColor" strokeWidth="1.8" />
+    </svg>
+  )
+}
+
 export function IconImage({ size = 16, className }: IconProps) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" className={className} aria-hidden>

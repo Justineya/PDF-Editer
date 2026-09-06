@@ -234,6 +234,8 @@ export type PageViewProps = {
   onPickImage?: (pageIndex: number, x: number, y: number) => void
   /** Content-stream rewrite (true edit). Reloads document bytes on success. */
   onStreamEdit?: (pageIndex: number, region: Rect, text: string) => void | Promise<void>
+  /** Switch tool after creating an object (usually back to select). */
+  onChangeEditTool?: (tool: EditTool) => void
 }
 
 export function PageView({
@@ -258,6 +260,7 @@ export function PageView({
   onPendingSelection,
   onPickImage,
   onStreamEdit,
+  onChangeEditTool,
 }: PageViewProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const pageRef = useRef<HTMLDivElement>(null)
@@ -461,7 +464,7 @@ export function PageView({
       onPickImage?.(pageIndex, p.x, p.y)
       return
     }
-    if (mode === 'edit' && editTool === 'whiteout') {
+    if (mode === 'edit' && editTool === 'shape') {
       boxStart.current = p
       setBox({ x: p.x, y: p.y, w: 0, h: 0 })
       overlayRef.current?.setPointerCapture(e.pointerId)
@@ -573,15 +576,18 @@ export function PageView({
         drawing.current = []
         return
       }
-      if (mode === 'edit' && editTool === 'whiteout') {
+      if (mode === 'edit' && editTool === 'shape') {
+        const id = uuid()
         onMutateDoc((d) => ({
           ...d,
           dirty: true,
           whiteouts: [
             ...(d.whiteouts ?? []),
-            { id: uuid(), pageIndex, rect: box, color: '#ffffff' },
+            { id, pageIndex, rect: box, color: color || '#ffffff' },
           ],
         }))
+        onSelectEdit({ kind: 'whiteout', id })
+        onChangeEditTool?.('select')
       }
       if (mode === 'redact') {
         onMutateDoc((d) => ({
@@ -627,7 +633,7 @@ export function PageView({
         <EditObjectLayer
           scale={scale}
           pageIndex={pageIndex}
-          interactive={editTool === 'select' || editTool === 'region'}
+          interactive={true}
           overlays={doc.overlays}
           images={doc.images}
           whiteouts={doc.whiteouts ?? []}
@@ -741,8 +747,8 @@ export function PageView({
             background:
               mode === 'redact'
                 ? 'rgba(0,0,0,0.55)'
-                : editTool === 'whiteout'
-                  ? 'rgba(255,255,255,0.75)'
+                : editTool === 'shape'
+                  ? color
                   : editTool === 'region'
                     ? 'rgba(47,93,80,0.12)'
                     : undefined,
@@ -783,15 +789,18 @@ export function PageView({
                 setPendingRegion(null)
                 return
               }
-              if (action === 'whiteout') {
+              if (action === 'shape') {
+                const id = uuid()
                 onMutateDoc((d) => ({
                   ...d,
                   dirty: true,
                   whiteouts: [
                     ...(d.whiteouts ?? []),
-                    { id: uuid(), pageIndex, rect: region, color: '#ffffff' },
+                    { id, pageIndex, rect: region, color: color || '#ffffff' },
                   ],
                 }))
+                onSelectEdit({ kind: 'whiteout', id })
+                onChangeEditTool?.('select')
                 setPendingRegion(null)
                 return
               }
@@ -813,8 +822,8 @@ export function PageView({
                 })
                 return
               }
-              if (action === 'cover-edit') {
-                setInlineEdit({ region, withWhiteout: true, seed: editText || '', mode: 'overlay' })
+              if (action === '__removed_cover__') {
+                return
               }
             }}
           />
@@ -840,19 +849,21 @@ export function PageView({
               })
               return
             }
+            const textId = uuid()
+            const coverId = inlineEdit.withWhiteout ? uuid() : null
             onMutateDoc((d) => ({
               ...d,
               dirty: true,
-              whiteouts: inlineEdit.withWhiteout
+              whiteouts: coverId
                 ? [
                     ...(d.whiteouts ?? []),
-                    { id: uuid(), pageIndex, rect: region, color: '#ffffff' },
+                    { id: coverId, pageIndex, rect: region, color: color || '#ffffff' },
                   ]
                 : d.whiteouts ?? [],
               overlays: [
                 ...d.overlays,
                 {
-                  id: uuid(),
+                  id: textId,
                   pageIndex,
                   x: region.x + 2,
                   y: region.y + 2,
@@ -864,6 +875,8 @@ export function PageView({
                 },
               ],
             }))
+            onSelectEdit({ kind: 'text', id: textId })
+            onChangeEditTool?.('select')
             setInlineEdit(null)
             setPendingRegion(null)
           }}

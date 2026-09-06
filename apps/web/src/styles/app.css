@@ -324,7 +324,30 @@ button.active { border-color: var(--accent-2); color: var(--accent-2); font-weig
 .edit-obj.selected { outline: 2px solid var(--accent-2); outline-offset: 1px; }
 .edit-obj.text { white-space: pre; cursor: move; }
 .edit-obj.image img { width: 100%; height: 100%; display: block; pointer-events: none; }
-.edit-obj.whiteout { cursor: move; box-shadow: inset 0 0 0 1px rgba(0,0,0,0.08); }
+.edit-obj.whiteout,
+.edit-obj.shape { cursor: move; box-shadow: inset 0 0 0 1px rgba(0,0,0,0.08); }
+.edit-obj-chrome {
+  position: absolute;
+  top: -30px;
+  left: 0;
+  display: flex;
+  gap: 0.25rem;
+  z-index: 5;
+  pointer-events: auto;
+}
+.edit-obj-chrome-btn {
+  font-size: 0.72rem;
+  padding: 0.15rem 0.45rem;
+  border-radius: 4px;
+  border: 1px solid var(--line);
+  background: #fff;
+  cursor: pointer;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+}
+.edit-obj-chrome-btn.danger {
+  color: var(--danger, #b42318);
+  border-color: color-mix(in srgb, var(--danger, #b42318) 35%, var(--line));
+}
 .resize-handle {
   position: absolute;
   right: -5px;
@@ -446,6 +469,35 @@ button.active { border-color: var(--accent-2); color: var(--accent-2); font-weig
   font-size: 0.75rem;
   margin-left: 0.4rem;
   min-width: 0;
+}
+.edit-toolbar-color {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.78rem;
+  margin-left: 0.25rem;
+}
+.edit-toolbar-color input[type='color'] {
+  width: 1.6rem;
+  height: 1.6rem;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: transparent;
+  cursor: pointer;
+}
+.list-item.selected {
+  outline: 2px solid var(--accent-2);
+  background: color-mix(in srgb, var(--accent-2) 10%, #fff);
+}
+.list-item .swatch {
+  display: inline-block;
+  width: 0.85rem;
+  height: 0.85rem;
+  border-radius: 2px;
+  border: 1px solid rgba(0,0,0,0.2);
+  margin-left: 0.35rem;
+  vertical-align: middle;
 }
 
 /* —— WPS-style region menu + inline editor —— */

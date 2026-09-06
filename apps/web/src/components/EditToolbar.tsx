@@ -3,46 +3,45 @@ import type { ReactElement } from 'react'
 import {
   IconImage,
   IconRegion,
-  IconReplace,
   IconSelect,
+  IconShape,
   IconText,
   IconWatermark,
-  IconWhiteout,
 } from './icons'
 
 export const EDIT_TOOL_META: Record<
   EditTool,
   { label: string; hint: string; Icon: (p: { size?: number }) => ReactElement }
 > = {
-  region: {
-    label: '框选区域',
-    hint: '拖拽框选 → 再选添加文字 / 白盖 / 改字（推荐，类似 WPS）',
-    Icon: IconRegion,
-  },
   select: {
-    label: '选择对象',
-    hint: '点选已放置的文字、白盖、图片，可拖动与缩放',
+    label: '选择',
+    hint: '单击选中对象 · 双击改字 · Delete 删除 · 空白处取消选中',
     Icon: IconSelect,
   },
-  text: {
-    label: '文本框',
-    hint: '点击放置文本框（也可先框选区域）',
-    Icon: IconText,
+  shape: {
+    label: '矩形',
+    hint: '先选颜色，再按住左键拖拽画矩形（替代白盖/覆盖）',
+    Icon: IconShape,
   },
-  whiteout: {
-    label: '白盖',
-    hint: '拖拽画白色遮盖，盖住原文',
-    Icon: IconWhiteout,
+  text: {
+    label: '文字',
+    hint: '点击页面放置文字；完成后自动回到选择',
+    Icon: IconText,
   },
   image: {
     label: '图片',
-    hint: '点击页面插入图片',
+    hint: '点击页面插入图片；完成后自动回到选择',
     Icon: IconImage,
   },
+  region: {
+    label: '框选',
+    hint: '框选区域后添加文字 / 改原文（高级）',
+    Icon: IconRegion,
+  },
   replace: {
-    label: '点选替换',
-    hint: '点击原文文本块，白盖后就地改字',
-    Icon: IconReplace,
+    label: '点选原文',
+    hint: '点原文文本块后就地改字（高级）',
+    Icon: IconText,
   },
   watermark: {
     label: '水印',
@@ -51,18 +50,21 @@ export const EDIT_TOOL_META: Record<
   },
 }
 
+const PRIMARY_TOOLS: EditTool[] = ['select', 'shape', 'text', 'image', 'region']
+
 type Props = {
   editTool: EditTool
   onChange: (tool: EditTool) => void
+  fillColor: string
+  onFillColorChange: (color: string) => void
 }
 
-/** Icon toolbar shown under the mode bar while editing. */
-export function EditToolbar({ editTool, onChange }: Props) {
-  const tools = (Object.keys(EDIT_TOOL_META) as EditTool[]).filter((t) => t !== 'watermark')
+/** Icon toolbar under the mode bar while editing. */
+export function EditToolbar({ editTool, onChange, fillColor, onFillColorChange }: Props) {
   return (
     <div className="edit-toolbar" role="toolbar" aria-label="编辑工具">
       <span className="edit-toolbar-label">编辑</span>
-      {tools.map((k) => {
+      {PRIMARY_TOOLS.map((k) => {
         const meta = EDIT_TOOL_META[k]
         const Icon = meta.Icon
         return (
@@ -79,6 +81,15 @@ export function EditToolbar({ editTool, onChange }: Props) {
           </button>
         )
       })}
+      <label className="edit-toolbar-color" title="矩形填充颜色">
+        <span>颜色</span>
+        <input
+          type="color"
+          value={fillColor}
+          onChange={(e) => onFillColorChange(e.target.value)}
+          aria-label="矩形填充颜色"
+        />
+      </label>
       <div className="edit-toolbar-hint muted">{EDIT_TOOL_META[editTool].hint}</div>
     </div>
   )

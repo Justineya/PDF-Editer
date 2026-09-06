@@ -138,7 +138,7 @@ export default function App() {
   const [outline, setOutline] = useState<Array<{ title: string; pageIndex: number | null }>>([])
   const [formFields, setFormFields] = useState<Array<{ name: string; type: string }>>([])
   const [selectedPages, setSelectedPages] = useState<number[]>([])
-  const [editTool, setEditTool] = useState<EditTool>('region')
+  const [editTool, setEditTool] = useState<EditTool>('select')
   const [selectedEdit, setSelectedEdit] = useState<EditObjectRef | null>(null)
   const [pendingSelection, setPendingSelection] = useState<PageSelection | null>(null)
   const history = useDocHistory(activeId)
@@ -174,6 +174,38 @@ export default function App() {
     },
     [activeId, history],
   )
+
+  // Delete / Escape for selected edit objects
+  useEffect(() => {
+    if (mode !== 'edit' || !selectedEdit || !active) return
+    const onKey = (e: KeyboardEvent) => {
+      const t = e.target as HTMLElement | null
+      if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return
+      if (e.key === 'Escape') {
+        setSelectedEdit(null)
+        return
+      }
+      if (e.key !== 'Delete' && e.key !== 'Backspace') return
+      e.preventDefault()
+      const ref = selectedEdit
+      updateActive((d) => {
+        if (ref.kind === 'text') {
+          return { ...d, dirty: true, overlays: d.overlays.filter((o) => o.id !== ref.id) }
+        }
+        if (ref.kind === 'image') {
+          return { ...d, dirty: true, images: d.images.filter((o) => o.id !== ref.id) }
+        }
+        return {
+          ...d,
+          dirty: true,
+          whiteouts: (d.whiteouts ?? []).filter((o) => o.id !== ref.id),
+        }
+      })
+      setSelectedEdit(null)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [mode, selectedEdit, active, updateActive])
 
   const openModels = async (opened: DocumentModel[]) => {
     if (!opened.length) return
@@ -512,23 +544,29 @@ useEffect(() => {
             )
           }
           if (mode === 'edit' && active) {
+            const pageIndex = Number(e.target.getAttribute('data-page') ?? selectedPages[0] ?? 0)
+            const x = Number(e.target.getAttribute('data-x') ?? 72)
+            const y = Number(e.target.getAttribute('data-y') ?? 72)
+            const id = uuid()
             updateActive((d) => ({
               ...d,
               dirty: true,
               images: [
                 ...d.images,
                 {
-                  id: uuid(),
-                  pageIndex: selectedPages[0] ?? 0,
-                  x: 72,
-                  y: 72,
+                  id,
+                  pageIndex,
+                  x,
+                  y,
                   w: 180,
                   h: 120,
                   dataUrl: urls[0],
                 },
               ],
             }))
-            show('已插入图片（导出时写入）')
+            setSelectedEdit({ kind: 'image', id })
+            setEditTool('select')
+            show('已插入图片 · 已选中，可拖动或按 Delete 删除')
           } else {
             const bytes = await imagesToPdf(urls)
             const model = await bytesToModel('图片转PDF.pdf', bytes)
@@ -703,7 +741,7 @@ useEffect(() => {
                 disabled: !active,
                 onClick: () => {
                   setMode('edit')
-                  setEditTool('region')
+                  setEditTool('select')
                 },
               },
               {
@@ -713,7 +751,7 @@ useEffect(() => {
                 disabled: !active,
                 onClick: () => {
                   setMode('edit')
-                  setEditTool('region')
+                  setEditTool('select')
                 },
               },
               {
@@ -728,12 +766,12 @@ useEffect(() => {
               },
               {
                 kind: 'item',
-                id: 'tool-whiteout',
-                label: '白盖清除',
+                id: 'tool-shape',
+                label: '矩形图形',
                 disabled: !active,
                 onClick: () => {
                   setMode('edit')
-                  setEditTool('whiteout')
+                  setEditTool('shape')
                 },
               },
               {
@@ -793,7 +831,7 @@ useEffect(() => {
             disabled={!active}
             onClick={() => {
               setMode(m)
-              if (m === 'edit') setEditTool('region')
+              if (m === 'edit') setEditTool('select')
             }}
             title={m}
           >
@@ -851,7 +889,7 @@ useEffect(() => {
       </div>
 
       {mode === 'edit' && active && (
-        <EditToolbar editTool={editTool} onChange={setEditTool} />
+        <EditToolbar editTool={editTool} onChange={setEditTool} fillColor={color} onFillColorChange={setColor} />
       )}
 
       {!active ? (
@@ -1037,6 +1075,7 @@ useEffect(() => {
                     }))
                   }}
                   onSelectEdit={setSelectedEdit}
+                  onChangeEditTool={setEditTool}
                   onPendingSelection={setPendingSelection}
                   onPickImage={(pageIndex, x, y) => {
                     imageRef.current?.setAttribute('data-page', String(pageIndex))
@@ -1263,11 +1302,25 @@ useEffect(() => {
                   <strong>{EDIT_TOOL_META[editTool].label}</strong>
                   <p className="muted">{EDIT_TOOL_META[editTool].hint}</p>
                 </div>
+                {editTool === 'select' && (
+                  <ol className="edit-steps muted">
+                    <li>单击已有对象即可选中（文字 / 矩形 / 图片）</li>
+                    <li>双击文字进入编辑；Delete / Backspace 删除</li>
+                    <li>空白处点击取消选中</li>
+                  </ol>
+                )}
+                {editTool === 'shape' && (
+                  <ol className="edit-steps muted">
+                    <li>上方选好填充颜色</li>
+                    <li>在页面上按住左键拖拽画出矩形</li>
+                    <li>松手后自动选中，可再拖动 / 删除</li>
+                  </ol>
+                )}
                 {editTool === 'region' && (
                   <ol className="edit-steps muted">
-                    <li>在页面上拖拽框选一块区域</li>
-                    <li>选「修改原文」改内容流，或「覆盖改字」做白盖叠字</li>
-                    <li>就地输入后点「完成」</li>
+                    <li>拖拽框选一块区域</li>
+                    <li>选「添加文字」或「修改原文」或「填充矩形」</li>
+                    <li>完成后自动回到「选择」</li>
                   </ol>
                 )}
                 <label className="field-label">默认文字（可选预填）</label>
@@ -1309,26 +1362,87 @@ useEffect(() => {
                   视觉遮盖工具…
                 </button>
                 <div className="muted">
-                  「修改原文」会改写页面内容流（简单拉丁 PDF 最稳）；失败或中文复杂字体请用「覆盖改字」。导出后第三方阅读器可见。
+                  推荐：矩形工具 + 颜色遮盖，或添加文字。「修改原文」仅适合简单拉丁 PDF。Delete 可删选中对象。
                 </div>
                 <div className="divider" />
-                <h4 className="field-label">本页对象</h4>
-                {active.overlays.length === 0 && (active.whiteouts?.length ?? 0) === 0 && (
-                  <div className="muted">尚无编辑对象 · 用「框选区域」开始</div>
-                )}
+                <h4 className="field-label">对象列表（点选 / 删除）</h4>
+                {active.overlays.length === 0 &&
+                  (active.whiteouts?.length ?? 0) === 0 &&
+                  active.images.length === 0 && (
+                    <div className="muted">尚无对象 · 用「矩形」或「文字」开始</div>
+                  )}
                 {active.overlays.map((o) => (
-                  <div key={o.id} className="list-item">
-                    文本 p{o.pageIndex + 1}: {o.text}
+                  <div
+                    key={o.id}
+                    className={`list-item ${selectedEdit?.kind === 'text' && selectedEdit.id === o.id ? 'selected' : ''}`}
+                    onClick={() => setSelectedEdit({ kind: 'text', id: o.id })}
+                  >
+                    文字 p{o.pageIndex + 1}: {o.text}
                     <button
                       type="button"
                       className="danger"
-                      onClick={() =>
+                      onClick={(e) => {
+                        e.stopPropagation()
                         updateActive((d) => ({
                           ...d,
                           overlays: d.overlays.filter((x) => x.id !== o.id),
                           dirty: true,
                         }))
-                      }
+                        setSelectedEdit(null)
+                      }}
+                    >
+                      删
+                    </button>
+                  </div>
+                ))}
+                {(active.whiteouts ?? []).map((w) => (
+                  <div
+                    key={w.id}
+                    className={`list-item ${selectedEdit?.kind === 'whiteout' && selectedEdit.id === w.id ? 'selected' : ''}`}
+                    onClick={() => setSelectedEdit({ kind: 'whiteout', id: w.id })}
+                  >
+                    矩形 p{w.pageIndex + 1}
+                    <span
+                      className="swatch"
+                      style={{ background: w.color || '#fff' }}
+                      title={w.color}
+                    />
+                    <button
+                      type="button"
+                      className="danger"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        updateActive((d) => ({
+                          ...d,
+                          whiteouts: (d.whiteouts ?? []).filter((x) => x.id !== w.id),
+                          dirty: true,
+                        }))
+                        setSelectedEdit(null)
+                      }}
+                    >
+                      删
+                    </button>
+                  </div>
+                ))}
+                {active.images.map((img) => (
+                  <div
+                    key={img.id}
+                    className={`list-item ${selectedEdit?.kind === 'image' && selectedEdit.id === img.id ? 'selected' : ''}`}
+                    onClick={() => setSelectedEdit({ kind: 'image', id: img.id })}
+                  >
+                    图片 p{img.pageIndex + 1}
+                    <button
+                      type="button"
+                      className="danger"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        updateActive((d) => ({
+                          ...d,
+                          images: d.images.filter((x) => x.id !== img.id),
+                          dirty: true,
+                        }))
+                        setSelectedEdit(null)
+                      }}
                     >
                       删
                     </button>
