@@ -121,11 +121,17 @@ const pdf = await PDFDocument.load(basePdf)
 pdf.registerFontkit(fontkit)
 const fontRegular = await pdf.embedFont(resolve('tc-regular'), { subset: true })
 const fontLight = await pdf.embedFont(resolve('tc-light'), { subset: true })
-const fontBold = await pdf.embedFont(resolve('tc-bold'), { subset: true })
-ok('user-uploaded NotoSansCJKtc-Bold embeds as vector')
-void fontBold
+let fontBold
+try {
+  fontBold = await pdf.embedFont(resolve('tc-bold'), { subset: false })
+  ok('user-uploaded NotoSansCJKtc-Bold embeds as vector')
+} catch (e) {
+  fail('Bold embed failed: ' + (e instanceof Error ? e.message : e))
+}
 const page = pdf.getPages()[0]
 const { height } = page.getSize()
+void height
+void fontBold
 
 // erase bands
 page.drawRectangle({

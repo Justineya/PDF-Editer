@@ -46,7 +46,9 @@ export async function embedOverlayFont(
   const files = await loadOverlayFontFileMap()
   const bytes = resolveFontBytes(family, files)
   if (!bytes) return null
-  return pdf.embedFont(bytes, { subset: true })
+  // Noto CJK Bold subsets often trip fontkit RangeError; embed whole face.
+  const subset = family !== 'tc-bold'
+  return pdf.embedFont(bytes, { subset })
 }
 
 export function isTcOverlayFont(family?: string): family is OverlayFontId {
