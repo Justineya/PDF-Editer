@@ -11,6 +11,8 @@ export default defineConfig({
     port: 5173,
     strictPort: true,
     host: host || true,
+    // Allow Cloudflare quick-tunnel / preview hosts
+    allowedHosts: true,
     hmr: host
       ? {
           protocol: 'ws',
