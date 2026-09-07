@@ -113,7 +113,7 @@ export function EditToolbar({ editTool, onChange, style, onStyleChange }: Props)
       </div>
 
       <div className="edit-stylebar" role="group" aria-label="放置样式">
-        <span className="edit-stylebar-label">放置前先选样式</span>
+        <span className="edit-stylebar-label">选中对象可改样式 · 放置前也可先选</span>
 
         <label className="edit-style-field">
           <span>字体</span>
