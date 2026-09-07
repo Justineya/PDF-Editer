@@ -1,0 +1,1094 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>投保書 PDF 編輯器</title>
+  <script src="vendor/pdf.min.js"></script>
+  <script src="vendor/pdf-lib.min.js"></script>
+  <style>
+    @font-face {
+      font-family: "Noto Sans CJK TC";
+      src: url("fonts/NotoSansCJKtc-Regular.otf") format("opentype");
+      font-weight: 400;
+      font-style: normal;
+    }
+    @font-face {
+      font-family: "Noto Sans CJK TC";
+      src: url("fonts/NotoSansCJKtc-Medium.otf") format("opentype");
+      font-weight: 500;
+      font-style: normal;
+    }
+    @font-face {
+      font-family: "Noto Sans CJK TC";
+      src: url("fonts/NotoSansCJKtc-Bold.otf") format("opentype");
+      font-weight: 700;
+      font-style: normal;
+    }
+    @font-face {
+      font-family: "Source Han Sans TC";
+      src: url("fonts/SourceHanSansTC-Regular.otf") format("opentype");
+      font-weight: 400;
+      font-style: normal;
+    }
+    @font-face {
+      font-family: "Source Han Sans TC";
+      src: url("fonts/SourceHanSansTC-Medium.otf") format("opentype");
+      font-weight: 500;
+      font-style: normal;
+    }
+    @font-face {
+      font-family: "Source Han Sans TC";
+      src: url("fonts/SourceHanSansTC-Bold.otf") format("opentype");
+      font-weight: 700;
+      font-style: normal;
+    }
+    :root {
+      --bg: #f6f1eb;
+      --panel: #fffaf6;
+      --ink: #1f1a16;
+      --muted: #6b5e54;
+      --line: #eadfd4;
+      --brand: #c2410c;
+      --brand-dark: #9a3412;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; height: 100%; }
+    body {
+      font-family: "Microsoft JhengHei", "Noto Sans CJK TC", sans-serif;
+      background: var(--bg);
+      color: var(--ink);
+      display: flex;
+      flex-direction: column;
+    }
+    header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 16px;
+      background: #fff;
+      border-bottom: 1px solid var(--line);
+      flex-shrink: 0;
+      flex-wrap: wrap;
+    }
+    header h1 { font-size: 16px; margin: 0; color: var(--brand-dark); }
+    header .sub { font-size: 12px; color: var(--muted); }
+    .grow { flex: 1; }
+    button, .file-btn {
+      font: inherit;
+      border: 1px solid var(--line);
+      background: #fff;
+      color: var(--ink);
+      border-radius: 8px;
+      padding: 7px 12px;
+      cursor: pointer;
+    }
+    button:hover, .file-btn:hover { border-color: #d4a574; }
+    button.primary { background: var(--brand); border-color: var(--brand); color: #fff; }
+    button.primary:hover { background: var(--brand-dark); }
+    button:disabled { opacity: .45; cursor: not-allowed; }
+    button.active { background: #ffedd5; border-color: var(--brand); color: var(--brand-dark); }
+    .file-btn input { display: none; }
+    .zoom-label { font-size: 12px; color: var(--muted); min-width: 44px; }
+    .app { display: grid; grid-template-columns: 148px 1fr 320px; min-height: 0; flex: 1; }
+    .thumbs, .props {
+      background: var(--panel);
+      border-right: 1px solid var(--line);
+      overflow: auto;
+      padding: 12px;
+    }
+    .props { border-right: 0; border-left: 1px solid var(--line); }
+    .thumbs h2, .props h2 { font-size: 12px; margin: 0 0 10px; color: var(--muted); }
+    .thumb {
+      display: block; width: 100%; margin: 0 0 10px;
+      border: 2px solid transparent; border-radius: 6px;
+      background: #fff; cursor: pointer; padding: 0;
+    }
+    .thumb canvas { width: 100%; display: block; border-radius: 4px; }
+    .thumb.on { border-color: var(--brand); }
+    .thumb span { display: block; font-size: 11px; color: var(--muted); padding: 4px 0 0; text-align: center; }
+    .stage-wrap { overflow: auto; background: #dfd4c8; }
+    .stage { min-height: 100%; display: flex; justify-content: center; padding: 24px; }
+    .page-box {
+      position: relative;
+      box-shadow: 0 16px 40px rgba(70, 40, 10, .18);
+      background: #fff;
+    }
+    .page-box canvas { display: block; }
+    .layer { position: absolute; inset: 0; user-select: none; }
+    .page-box.draw .layer { cursor: crosshair; }
+    .guide {
+      display: none;
+      padding: 8px 16px;
+      background: #fff7ed;
+      border-bottom: 1px solid #fed7aa;
+      color: #9a3412;
+      font-size: 13px;
+      flex-shrink: 0;
+    }
+    .guide.on { display: block; }
+    .item {
+      position: absolute;
+      min-width: 8px;
+      min-height: 8px;
+      outline: 1px dashed rgba(194, 65, 12, .55);
+      background: rgba(255, 255, 255, .92);
+    }
+    .item.text {
+      background: transparent;
+      color: #111;
+      white-space: pre-wrap;
+      word-break: break-word;
+      line-height: 1.25;
+      overflow: hidden;
+      padding: 1px 2px;
+      cursor: move;
+    }
+    .item.cover, .item.image { cursor: move; }
+    .item.image { background: transparent; overflow: hidden; }
+    .item.image img { width: 100%; height: 100%; object-fit: fill; pointer-events: none; display: block; }
+    .item.sel { outline: 2px solid var(--brand); z-index: 3; }
+    .handle {
+      position: absolute; width: 10px; height: 10px;
+      background: var(--brand); border: 1px solid #fff;
+      right: -5px; bottom: -5px; cursor: nwse-resize; z-index: 4;
+    }
+    .rubber {
+      position: absolute; border: 1px dashed var(--brand);
+      background: rgba(194, 65, 12, .12); pointer-events: none; z-index: 5;
+    }
+    .hit {
+      position: absolute;
+      outline: 2px solid #0f766e;
+      background: rgba(15, 118, 110, .18);
+      pointer-events: none;
+    }
+    label.field { display: block; font-size: 12px; color: var(--muted); margin: 10px 0 4px; }
+    input[type="text"], textarea, select, input[type="number"], input[type="color"] {
+      width: 100%; font: inherit; border: 1px solid var(--line); border-radius: 8px;
+      padding: 8px; background: #fff;
+    }
+    textarea { min-height: 96px; resize: vertical; }
+    .row { display: flex; gap: 8px; }
+    .row > * { flex: 1; }
+    .preset { width: 100%; text-align: left; margin-bottom: 8px; font-size: 13px; line-height: 1.4; }
+    .hint { font-size: 12px; color: var(--muted); line-height: 1.55; margin: 0 0 12px; }
+    .hits { font-size: 12px; max-height: 140px; overflow: auto; }
+    .hits button { width: 100%; text-align: left; margin-bottom: 6px; font-size: 12px; }
+    .empty { align-self: center; text-align: center; color: var(--muted); max-width: 420px; }
+    .empty h2 { color: var(--brand-dark); }
+    .tools { display: flex; gap: 6px; flex-wrap: wrap; }
+    .status { font-size: 12px; color: var(--muted); }
+    .drop {
+      border: 2px dashed #d4a574; border-radius: 16px; padding: 28px;
+      background: #fff; color: var(--muted);
+    }
+    #imgTools { display: none; margin-top: 8px; }
+    #imgTools.on { display: block; }
+    #imgTools .row { margin-bottom: 8px; }
+    #imgTools button { width: 100%; }
+  </style>
+</head>
+<body>
+  <header>
+    <div>
+      <h1>投保書 PDF 編輯器</h1>
+      <div class="sub">建議用「文字＋Regular 字體」改地址；貼上的圖片可裁切／擦白。</div>
+    </div>
+    <div class="grow"></div>
+    <label class="file-btn">開啟 PDF<input id="file" type="file" accept="application/pdf" /></label>
+    <label class="file-btn">插入圖片<input id="imgFile" type="file" accept="image/*" /></label>
+    <div class="tools">
+      <button id="toolSelect" class="active" data-tool="select">選取</button>
+      <button id="toolCover" data-tool="cover">遮蓋</button>
+      <button id="toolText" data-tool="text">文字</button>
+    </div>
+    <button id="zoomOut">－</button>
+    <span class="zoom-label" id="zoomLabel">100%</span>
+    <button id="zoomIn">＋</button>
+    <button id="undo">復原</button>
+    <button id="del">刪除選取</button>
+    <button id="save" class="primary" disabled>匯出 PDF</button>
+  </header>
+  <div class="guide" id="guide">請先開啟 PDF。地址正文請用 Regular，不要用 Bold。</div>
+  <div class="app">
+    <aside class="thumbs"><h2>頁面</h2><div id="thumbList"></div></aside>
+    <div class="stage-wrap" id="stageWrap">
+      <div class="stage" id="stage">
+        <div class="empty" id="empty">
+          <div class="drop">
+            <h2>開啟投保書 PDF</h2>
+            <p>拖入 PDF。改地址優先用文字＋思源黑體 Regular。<br />也可貼上圖片後裁切／擦白。</p>
+          </div>
+        </div>
+        <div class="page-box" id="pageBox" hidden>
+          <canvas id="pdfCanvas"></canvas>
+          <div class="layer" id="layer"></div>
+        </div>
+      </div>
+    </div>
+    <aside class="props">
+      <h2>新地址預設</h2>
+      <p class="hint">你截圖裡的地址是 <strong>Regular</strong> 字重。右側字體請選「思源黑體 Regular」。</p>
+      <button class="primary" id="placeText" type="button" style="width:100%;margin-bottom:10px">在本頁放入文字框</button>
+      <button class="preset" id="presetZh" type="button">中文＋葡文地址<br /><span class="status">兩行地址，對齊分行資訊區</span></button>
+      <button class="preset" id="presetBldg" type="button">只改大廈名稱<br /><span class="status">中國工商銀行大廈</span></button>
+      <button id="findOld">搜尋「財神／Fortune」</button>
+      <div class="hits" id="hits"></div>
+
+      <h2 style="margin-top:18px">文字設定</h2>
+      <label class="field">文字內容</label>
+      <textarea id="textInput" placeholder="選文字框後可編輯"></textarea>
+      <label class="field">字體（改地址請用 Regular）</label>
+      <select id="fontFamily"></select>
+      <div class="row">
+        <div>
+          <label class="field">字號</label>
+          <input id="fontSize" type="number" min="6" max="72" value="9" />
+        </div>
+        <div>
+          <label class="field">顏色</label>
+          <input id="fontColor" type="color" value="#111111" />
+        </div>
+      </div>
+      <label class="field">遮蓋顏色</label>
+      <input id="coverColor" type="color" value="#ffffff" />
+
+      <div id="imgTools">
+        <h2>圖片編輯</h2>
+        <p class="hint" id="imgHint">先點選圖片。裁切：在圖上拖出要保留的區域。擦白：在圖上拖出要塗白的區域。</p>
+        <div class="row">
+          <button type="button" id="imgCrop" data-imgmode="crop">裁切</button>
+          <button type="button" id="imgErase" data-imgmode="erase">擦白</button>
+        </div>
+        <div class="row">
+          <button type="button" id="imgReplace">替換圖片</button>
+          <button type="button" id="imgDone">完成編輯</button>
+        </div>
+      </div>
+      <p class="hint" id="selInfo">尚未選取。</p>
+    </aside>
+  </div>
+  <script>
+    pdfjsLib.GlobalWorkerOptions.workerSrc = "vendor/pdf.worker.min.js";
+
+    const ADDR_BLOCK =
+      "澳門南灣湖景大馬路810號中國工商銀行大廈6樓E座\n" +
+      "Avenida Panorâmica do Lago Nam Van, nº 810,\n" +
+      "Edif. ICBC Tower, 6º andar E, Macau";
+    const ADDR_BLDG = "中國工商銀行大廈";
+    const FIND_KEYS = ["財神", "财神", "Fortune", "FORTUNE", "Edifício Fortune", "Edificio Fortune"];
+    const FONTS = [
+      { label: "思源黑體 Regular（Noto Sans CJK TC）★建議", family: "Noto Sans CJK TC", weight: "400" },
+      { label: "思源黑體 Medium（Noto Sans CJK TC）", family: "Noto Sans CJK TC", weight: "500" },
+      { label: "思源黑體 Bold（Noto Sans CJK TC）", family: "Noto Sans CJK TC", weight: "700" },
+      { label: "思源黑體 Regular（Source Han Sans TC）", family: "Source Han Sans TC", weight: "400" },
+      { label: "思源黑體 Medium（Source Han Sans TC）", family: "Source Han Sans TC", weight: "500" },
+      { label: "思源黑體 Bold（Source Han Sans TC）", family: "Source Han Sans TC", weight: "700" },
+      { label: "微軟正黑體", family: "Microsoft JhengHei", weight: "400" },
+      { label: "微軟正黑體 Bold", family: "Microsoft JhengHei", weight: "700" },
+      { label: "新細明體", family: "PMingLiU", weight: "400" },
+      { label: "Arial", family: "Arial", weight: "400" },
+    ];
+
+    const fileInput = document.getElementById("file");
+    const imgFile = document.getElementById("imgFile");
+    const thumbs = document.getElementById("thumbList");
+    const empty = document.getElementById("empty");
+    const pageBox = document.getElementById("pageBox");
+    const canvas = document.getElementById("pdfCanvas");
+    const ctx = canvas.getContext("2d");
+    const layer = document.getElementById("layer");
+    const hitsEl = document.getElementById("hits");
+    const textInput = document.getElementById("textInput");
+    const fontFamily = document.getElementById("fontFamily");
+    const fontSize = document.getElementById("fontSize");
+    const fontColor = document.getElementById("fontColor");
+    const coverColor = document.getElementById("coverColor");
+    const selInfo = document.getElementById("selInfo");
+    const saveBtn = document.getElementById("save");
+    const guide = document.getElementById("guide");
+    const zoomLabel = document.getElementById("zoomLabel");
+    const stageWrap = document.getElementById("stageWrap");
+    const imgTools = document.getElementById("imgTools");
+    const imgHint = document.getElementById("imgHint");
+
+    FONTS.forEach((f, i) => {
+      const opt = document.createElement("option");
+      opt.value = String(i);
+      opt.textContent = f.label;
+      fontFamily.appendChild(opt);
+    });
+
+    let pdfBytes = null;
+    let pdfDoc = null;
+    let fileName = "edited.pdf";
+    let pageNum = 1;
+    let scale = 1.4;
+    let tool = "select";
+    let overlays = [];
+    let selectedId = null;
+    let history = [];
+    let drag = null;
+    let pageView = { width: 0, height: 0, pdfW: 0, pdfH: 0 };
+    let hits = [];
+    let draftText = ADDR_BLOCK;
+    let renderToken = 0;
+    let lastPointer = { x: 80, y: 80 };
+    let imgMode = null; // null | 'crop' | 'erase'
+    let replacingImage = false;
+
+    function uid() { return "o" + Math.random().toString(36).slice(2, 9); }
+    function snapshot() {
+      history.push(JSON.stringify(overlays));
+      if (history.length > 40) history.shift();
+    }
+    function pdfToCss(o) {
+      return {
+        left: o.x * scale,
+        top: (pageView.pdfH - o.y - o.h) * scale,
+        width: o.w * scale,
+        height: o.h * scale,
+      };
+    }
+    function cssToPdf(left, top, w, h) {
+      return {
+        x: left / scale,
+        y: pageView.pdfH - (top + h) / scale,
+        w: w / scale,
+        h: h / scale,
+      };
+    }
+    function currentPageOverlays() { return overlays.filter((o) => o.page === pageNum); }
+    function selected() { return overlays.find((o) => o.id === selectedId) || null; }
+    function currentFont() { return FONTS[Number(fontFamily.value) || 0]; }
+    function updateZoomLabel() { zoomLabel.textContent = Math.round(scale * 100) + "%"; }
+
+    function setTool(next) {
+      tool = next;
+      if (next !== "select") imgMode = null;
+      document.querySelectorAll("[data-tool]").forEach((b) => b.classList.toggle("active", b.dataset.tool === next));
+      document.querySelectorAll("[data-imgmode]").forEach((b) => b.classList.toggle("active", b.dataset.imgmode === imgMode));
+      pageBox.classList.toggle("draw", next === "cover" || next === "text" || !!imgMode);
+      if (!pdfDoc) {
+        guide.className = "guide on";
+        guide.textContent = "請先開啟 PDF。";
+      } else if (imgMode === "crop") {
+        guide.className = "guide on";
+        guide.textContent = "裁切：在選中的圖片上拖出要保留的區域，鬆手即裁切。";
+      } else if (imgMode === "erase") {
+        guide.className = "guide on";
+        guide.textContent = "擦白：在圖片上拖出要塗掉的區域。";
+      } else if (next === "text") {
+        guide.className = "guide on";
+        guide.textContent = "文字：拖出方框。字體請選思源黑體 Regular，才會比較接近原稿。";
+      } else if (next === "cover") {
+        guide.className = "guide on";
+        guide.textContent = "遮蓋：拖出白框蓋住舊地址。";
+      } else {
+        guide.className = "guide on";
+        guide.textContent = "選取後可拖動。圖片選中後右側可裁切／擦白。Ctrl+滾輪放大。";
+      }
+    }
+    document.querySelectorAll("[data-tool]").forEach((btn) => {
+      btn.addEventListener("click", () => setTool(btn.dataset.tool));
+    });
+    document.getElementById("placeText").onclick = () => {
+      if (!pdfDoc) { alert("請先開啟 PDF。"); return; }
+      setTool("text");
+      addOverlay("text", (pageView.width - 320) / 2, 80, 320, 56);
+    };
+    document.getElementById("presetZh").onclick = () => {
+      draftText = ADDR_BLOCK;
+      textInput.value = ADDR_BLOCK;
+      fontFamily.value = "0";
+      applyTextToSel();
+    };
+    document.getElementById("presetBldg").onclick = () => {
+      draftText = ADDR_BLDG;
+      textInput.value = ADDR_BLDG;
+      fontFamily.value = "0";
+      applyTextToSel();
+    };
+    textInput.oninput = () => { draftText = textInput.value; applyTextToSel(); };
+    fontFamily.onchange = applyTextToSel;
+    fontSize.oninput = applyTextToSel;
+    fontColor.oninput = applyTextToSel;
+    coverColor.oninput = () => {
+      const o = selected();
+      if (!o || o.type !== "cover") return;
+      snapshot();
+      o.fill = coverColor.value;
+      drawLayer();
+    };
+
+    function setImgMode(mode) {
+      const o = selected();
+      if (!o || o.type !== "image") {
+        alert("請先點選一張插入的圖片。");
+        return;
+      }
+      imgMode = mode;
+      setTool("select");
+      pageBox.classList.add("draw");
+      document.querySelectorAll("[data-imgmode]").forEach((b) => b.classList.toggle("active", b.dataset.imgmode === imgMode));
+      imgHint.textContent = mode === "crop"
+        ? "在圖片上拖出要保留的區域，鬆手完成裁切。"
+        : "在圖片上拖出要塗白的區域，可多次擦。";
+    }
+    document.getElementById("imgCrop").onclick = () => setImgMode("crop");
+    document.getElementById("imgErase").onclick = () => setImgMode("erase");
+    document.getElementById("imgDone").onclick = () => {
+      imgMode = null;
+      document.querySelectorAll("[data-imgmode]").forEach((b) => b.classList.remove("active"));
+      setTool("select");
+      imgHint.textContent = "先點選圖片。裁切：拖出要保留的區域。擦白：拖出要塗白的區域。";
+    };
+    document.getElementById("imgReplace").onclick = () => {
+      const o = selected();
+      if (!o || o.type !== "image") { alert("請先點選圖片。"); return; }
+      replacingImage = true;
+      imgFile.click();
+    };
+
+    function setScale(next) {
+      scale = Math.min(6, Math.max(0.5, next));
+      updateZoomLabel();
+      renderPage();
+    }
+    document.getElementById("zoomIn").onclick = () => setScale(scale + 0.25);
+    document.getElementById("zoomOut").onclick = () => setScale(scale - 0.25);
+    stageWrap.addEventListener("wheel", (e) => {
+      if (!e.ctrlKey && !e.metaKey) return;
+      e.preventDefault();
+      setScale(scale + (e.deltaY < 0 ? 0.2 : -0.2));
+    }, { passive: false });
+    document.getElementById("undo").onclick = () => {
+      const prev = history.pop();
+      if (!prev) return;
+      overlays = JSON.parse(prev);
+      selectedId = null;
+      imgMode = null;
+      drawLayer();
+      updateProps();
+    };
+    document.getElementById("del").onclick = deleteSelected;
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Delete") {
+        if (document.activeElement && ["INPUT", "TEXTAREA", "SELECT"].includes(document.activeElement.tagName)) return;
+        deleteSelected();
+      }
+      if (e.key === "Escape") {
+        selectedId = null;
+        imgMode = null;
+        drawLayer();
+        updateProps();
+        setTool("select");
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z") {
+        e.preventDefault();
+        document.getElementById("undo").click();
+      }
+    });
+
+    function deleteSelected() {
+      if (!selectedId) return;
+      snapshot();
+      overlays = overlays.filter((o) => o.id !== selectedId);
+      selectedId = null;
+      imgMode = null;
+      drawLayer();
+      updateProps();
+    }
+    function applyTextToSel() {
+      const o = selected();
+      if (!o || o.type !== "text") return;
+      const f = currentFont();
+      o.text = textInput.value;
+      o.fontSize = Number(fontSize.value) || 9;
+      o.color = fontColor.value;
+      o.fontFamily = f.family;
+      o.fontWeight = f.weight;
+      o.fontIndex = Number(fontFamily.value) || 0;
+      drawLayer();
+    }
+    function updateProps() {
+      const o = selected();
+      imgTools.classList.toggle("on", !!(o && o.type === "image"));
+      if (!o) {
+        selInfo.textContent = "尚未選取。建議：遮蓋舊地址 → 文字框＋思源黑體 Regular 寫新地址。";
+        return;
+      }
+      if (o.type === "text") {
+        textInput.value = o.text;
+        fontSize.value = o.fontSize;
+        fontColor.value = o.color || "#111111";
+        if (o.fontIndex != null) fontFamily.value = String(o.fontIndex);
+        selInfo.textContent = "已選文字。可改字體／字號／內容。地址請用 Regular。";
+      } else if (o.type === "image") {
+        selInfo.textContent = "已選圖片。可拖動、拉右下角縮放；右側可裁切／擦白／替換。";
+      } else {
+        coverColor.value = o.fill || "#ffffff";
+        selInfo.textContent = "已選遮蓋。";
+      }
+    }
+
+    fileInput.addEventListener("change", () => { if (fileInput.files[0]) openFile(fileInput.files[0]); });
+    imgFile.addEventListener("change", async () => {
+      const f = imgFile.files[0];
+      if (!f) return;
+      if (replacingImage) {
+        const o = selected();
+        if (o && o.type === "image") {
+          snapshot();
+          o.dataUrl = await fileToDataUrl(f);
+          drawLayer();
+        }
+        replacingImage = false;
+      } else {
+        await addImageFile(f);
+      }
+      imgFile.value = "";
+    });
+    ["dragover", "dragenter"].forEach((ev) => {
+      document.body.addEventListener(ev, (e) => e.preventDefault());
+    });
+    document.body.addEventListener("drop", (e) => {
+      e.preventDefault();
+      const f = e.dataTransfer.files[0];
+      if (!f) return;
+      if (f.type === "application/pdf") openFile(f);
+      else if (f.type.startsWith("image/")) addImageFile(f, e);
+    });
+    document.addEventListener("paste", (e) => {
+      const items = e.clipboardData && e.clipboardData.items;
+      if (!items) return;
+      for (const it of items) {
+        if (it.type.startsWith("image/")) {
+          e.preventDefault();
+          addImageFile(it.getAsFile());
+          return;
+        }
+      }
+    });
+
+    async function openFile(file) {
+      fileName = file.name.replace(/\.pdf$/i, "") + "_改地址.pdf";
+      pdfBytes = new Uint8Array(await file.arrayBuffer());
+      pdfDoc = await pdfjsLib.getDocument({ data: pdfBytes.slice() }).promise;
+      overlays = [];
+      history = [];
+      hits = [];
+      pageNum = 1;
+      saveBtn.disabled = false;
+      empty.hidden = true;
+      pageBox.hidden = false;
+      textInput.value = ADDR_BLOCK;
+      draftText = ADDR_BLOCK;
+      fontFamily.value = "0";
+      setTool("text");
+      await buildThumbs();
+      await renderPage();
+    }
+
+    async function addImageFile(file, dropEvent) {
+      if (!pdfDoc) { alert("請先開啟 PDF，再貼上或拖入圖片。"); return; }
+      const dataUrl = await fileToDataUrl(file);
+      const img = await loadImg(dataUrl);
+      let w = img.naturalWidth;
+      let h = img.naturalHeight;
+      const maxW = pageView.width * 0.5;
+      if (w > maxW) { h *= maxW / w; w = maxW; }
+      let left = lastPointer.x;
+      let top = lastPointer.y;
+      if (dropEvent && dropEvent.clientX) {
+        const r = layer.getBoundingClientRect();
+        left = dropEvent.clientX - r.left;
+        top = dropEvent.clientY - r.top;
+      }
+      snapshot();
+      const pdf = cssToPdf(left, top, w, h);
+      const item = {
+        id: uid(), page: pageNum, type: "image",
+        x: pdf.x, y: pdf.y, w: pdf.w, h: pdf.h, dataUrl,
+      };
+      overlays.push(item);
+      selectedId = item.id;
+      imgMode = null;
+      setTool("select");
+      updateProps();
+      drawLayer();
+    }
+    function fileToDataUrl(file) {
+      return new Promise((resolve, reject) => {
+        const r = new FileReader();
+        r.onload = () => resolve(r.result);
+        r.onerror = reject;
+        r.readAsDataURL(file);
+      });
+    }
+    function loadImg(src) {
+      return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => resolve(img);
+        img.onerror = reject;
+        img.src = src;
+      });
+    }
+
+    async function buildThumbs() {
+      thumbs.innerHTML = "";
+      for (let i = 1; i <= pdfDoc.numPages; i++) {
+        const page = await pdfDoc.getPage(i);
+        const vp = page.getViewport({ scale: 0.22 });
+        const c = document.createElement("canvas");
+        c.width = vp.width; c.height = vp.height;
+        await page.render({ canvasContext: c.getContext("2d"), viewport: vp }).promise;
+        const b = document.createElement("button");
+        b.className = "thumb" + (i === pageNum ? " on" : "");
+        b.appendChild(c);
+        const cap = document.createElement("span");
+        cap.textContent = "第 " + i + " 頁";
+        b.appendChild(cap);
+        b.onclick = () => { pageNum = i; renderPage(); buildThumbs(); };
+        thumbs.appendChild(b);
+      }
+    }
+
+    async function renderPage() {
+      if (!pdfDoc) return;
+      const token = ++renderToken;
+      const page = await pdfDoc.getPage(pageNum);
+      const dpr = Math.min(window.devicePixelRatio || 1, 2.5);
+      const cssW = page.getViewport({ scale }).width;
+      const cssH = page.getViewport({ scale }).height;
+      const vp = page.getViewport({ scale: scale * dpr });
+      if (token !== renderToken) return;
+      pageView = { width: cssW, height: cssH, pdfW: cssW / scale, pdfH: cssH / scale };
+      canvas.width = vp.width;
+      canvas.height = vp.height;
+      canvas.style.width = cssW + "px";
+      canvas.style.height = cssH + "px";
+      pageBox.style.width = cssW + "px";
+      pageBox.style.height = cssH + "px";
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      await page.render({ canvasContext: ctx, viewport: vp }).promise;
+      if (token !== renderToken) return;
+      drawLayer();
+      updateZoomLabel();
+    }
+
+    function drawLayer() {
+      layer.innerHTML = "";
+      layer.style.width = pageView.width + "px";
+      layer.style.height = pageView.height + "px";
+      hits.filter((h) => h.page === pageNum).forEach((h) => {
+        const d = document.createElement("div");
+        d.className = "hit";
+        Object.assign(d.style, {
+          left: h.x * scale + "px",
+          top: (pageView.pdfH - h.y - h.h) * scale + "px",
+          width: h.w * scale + "px",
+          height: h.h * scale + "px",
+        });
+        layer.appendChild(d);
+      });
+      currentPageOverlays().forEach((o) => {
+        const el = document.createElement("div");
+        el.className = "item " + o.type + (o.id === selectedId ? " sel" : "");
+        el.dataset.id = o.id;
+        const box = pdfToCss(o);
+        Object.assign(el.style, {
+          left: box.left + "px",
+          top: box.top + "px",
+          width: box.width + "px",
+          height: box.height + "px",
+        });
+        if (o.type === "cover") el.style.background = o.fill || "#fff";
+        if (o.type === "text") {
+          el.style.color = o.color || "#111";
+          el.style.fontSize = (o.fontSize * scale) + "px";
+          el.style.fontFamily = '"' + (o.fontFamily || "Noto Sans CJK TC") + '", "Microsoft JhengHei", sans-serif';
+          el.style.fontWeight = o.fontWeight || "400";
+          el.textContent = o.text || "";
+        }
+        if (o.type === "image" && o.dataUrl) {
+          const im = document.createElement("img");
+          im.src = o.dataUrl;
+          el.appendChild(im);
+        }
+        const handle = document.createElement("div");
+        handle.className = "handle";
+        el.appendChild(handle);
+        el.addEventListener("mousedown", (e) => {
+          if (imgMode && o.type === "image" && o.id === selectedId) {
+            startImgEdit(e, o);
+            return;
+          }
+          onItemDown(e, o, e.target === handle);
+        });
+        layer.appendChild(el);
+      });
+    }
+
+    function addOverlay(type, left, top, w, h) {
+      snapshot();
+      const pdf = cssToPdf(left, top, w, h);
+      const f = currentFont();
+      const item = {
+        id: uid(),
+        page: pageNum,
+        type,
+        x: pdf.x, y: pdf.y, w: pdf.w, h: pdf.h,
+        fill: coverColor.value,
+        text: type === "text" ? (textInput.value || draftText) : "",
+        fontSize: Number(fontSize.value) || 9,
+        color: fontColor.value,
+        fontFamily: f.family,
+        fontWeight: f.weight,
+        fontIndex: Number(fontFamily.value) || 0,
+      };
+      overlays.push(item);
+      selectedId = item.id;
+      updateProps();
+      drawLayer();
+      return item;
+    }
+
+    function onItemDown(e, o, resize) {
+      e.stopPropagation();
+      e.preventDefault();
+      selectedId = o.id;
+      updateProps();
+      drawLayer();
+      const start = { mx: e.clientX, my: e.clientY, x: o.x, y: o.y, w: o.w, h: o.h, ratio: o.w / (o.h || 1) };
+      snapshot();
+      drag = { kind: resize ? "resize" : "move", o, start };
+    }
+
+    function startImgEdit(e, o) {
+      e.stopPropagation();
+      e.preventDefault();
+      const box = pdfToCss(o);
+      const rect = layer.getBoundingClientRect();
+      const x0 = e.clientX - rect.left;
+      const y0 = e.clientY - rect.top;
+      const rubber = document.createElement("div");
+      rubber.className = "rubber";
+      layer.appendChild(rubber);
+      drag = {
+        kind: "imgEdit",
+        mode: imgMode,
+        o,
+        box,
+        x0, y0,
+        rubber,
+      };
+    }
+
+    async function applyImgCrop(o, left, top, w, h) {
+      const box = pdfToCss(o);
+      const sx = Math.max(0, left - box.left);
+      const sy = Math.max(0, top - box.top);
+      const sw = Math.min(w, box.width - sx);
+      const sh = Math.min(h, box.height - sy);
+      if (sw < 4 || sh < 4) return;
+      const img = await loadImg(o.dataUrl);
+      const c = document.createElement("canvas");
+      const rx = sx / box.width;
+      const ry = sy / box.height;
+      const rw = sw / box.width;
+      const rh = sh / box.height;
+      c.width = Math.max(1, Math.round(img.naturalWidth * rw));
+      c.height = Math.max(1, Math.round(img.naturalHeight * rh));
+      const c2d = c.getContext("2d");
+      c2d.drawImage(
+        img,
+        Math.round(img.naturalWidth * rx),
+        Math.round(img.naturalHeight * ry),
+        Math.round(img.naturalWidth * rw),
+        Math.round(img.naturalHeight * rh),
+        0, 0, c.width, c.height
+      );
+      snapshot();
+      o.dataUrl = c.toDataURL("image/png");
+      const pdf = cssToPdf(box.left + sx, box.top + sy, sw, sh);
+      o.x = pdf.x; o.y = pdf.y; o.w = pdf.w; o.h = pdf.h;
+      drawLayer();
+    }
+
+    async function applyImgErase(o, left, top, w, h) {
+      const box = pdfToCss(o);
+      const sx = Math.max(0, left - box.left);
+      const sy = Math.max(0, top - box.top);
+      const sw = Math.min(w, box.width - sx);
+      const sh = Math.min(h, box.height - sy);
+      if (sw < 2 || sh < 2) return;
+      const img = await loadImg(o.dataUrl);
+      const c = document.createElement("canvas");
+      c.width = img.naturalWidth;
+      c.height = img.naturalHeight;
+      const c2d = c.getContext("2d");
+      c2d.drawImage(img, 0, 0);
+      c2d.fillStyle = "#ffffff";
+      c2d.fillRect(
+        (sx / box.width) * c.width,
+        (sy / box.height) * c.height,
+        (sw / box.width) * c.width,
+        (sh / box.height) * c.height
+      );
+      snapshot();
+      o.dataUrl = c.toDataURL("image/png");
+      drawLayer();
+    }
+
+    layer.addEventListener("mousemove", (e) => {
+      const rect = layer.getBoundingClientRect();
+      lastPointer = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+    });
+    layer.addEventListener("mousedown", (e) => {
+      if (e.target !== layer) return;
+      const rect = layer.getBoundingClientRect();
+      const x0 = e.clientX - rect.left;
+      const y0 = e.clientY - rect.top;
+      lastPointer = { x: x0, y: y0 };
+      if (imgMode) {
+        selectedId = null;
+        imgMode = null;
+        updateProps();
+        drawLayer();
+        setTool("select");
+        return;
+      }
+      if (tool === "select") {
+        selectedId = null;
+        drawLayer();
+        updateProps();
+        return;
+      }
+      const rubber = document.createElement("div");
+      rubber.className = "rubber";
+      layer.appendChild(rubber);
+      drag = { kind: "create", tool, x0, y0, rubber };
+    });
+
+    window.addEventListener("mousemove", (e) => {
+      if (!drag) return;
+      if (drag.kind === "create" || drag.kind === "imgEdit") {
+        const rect = layer.getBoundingClientRect();
+        const x1 = e.clientX - rect.left;
+        const y1 = e.clientY - rect.top;
+        Object.assign(drag.rubber.style, {
+          left: Math.min(drag.x0, x1) + "px",
+          top: Math.min(drag.y0, y1) + "px",
+          width: Math.abs(x1 - drag.x0) + "px",
+          height: Math.abs(y1 - drag.y0) + "px",
+        });
+        return;
+      }
+      const dx = (e.clientX - drag.start.mx) / scale;
+      const dy = (e.clientY - drag.start.my) / scale;
+      if (drag.kind === "move") {
+        drag.o.x = drag.start.x + dx;
+        drag.o.y = drag.start.y - dy;
+      } else if (drag.kind === "resize") {
+        let nw = Math.max(8 / scale, drag.start.w + dx);
+        let nh = Math.max(8 / scale, drag.start.h + dy);
+        if (drag.o.type === "image" && !e.shiftKey) nh = nw / (drag.start.ratio || 1);
+        drag.o.w = nw;
+        drag.o.h = nh;
+        drag.o.y = drag.start.y - (drag.o.h - drag.start.h);
+      }
+      drawLayer();
+    });
+
+    window.addEventListener("mouseup", async (e) => {
+      if (!drag) return;
+      if (drag.kind === "create") {
+        const rect = layer.getBoundingClientRect();
+        const x1 = e.clientX - rect.left;
+        const y1 = e.clientY - rect.top;
+        const left = Math.min(drag.x0, x1);
+        const top = Math.min(drag.y0, y1);
+        const w = Math.abs(x1 - drag.x0);
+        const h = Math.abs(y1 - drag.y0);
+        drag.rubber.remove();
+        if (w < 8 && h < 8) {
+          addOverlay(drag.tool, drag.x0, drag.y0, drag.tool === "text" ? 320 : 160, drag.tool === "text" ? 56 : 18);
+        } else {
+          addOverlay(drag.tool, left, top, Math.max(w, 12), Math.max(h, 14));
+        }
+      } else if (drag.kind === "imgEdit") {
+        const rect = layer.getBoundingClientRect();
+        const x1 = e.clientX - rect.left;
+        const y1 = e.clientY - rect.top;
+        const left = Math.min(drag.x0, x1);
+        const top = Math.min(drag.y0, y1);
+        const w = Math.abs(x1 - drag.x0);
+        const h = Math.abs(y1 - drag.y0);
+        drag.rubber.remove();
+        if (drag.mode === "crop") await applyImgCrop(drag.o, left, top, w, h);
+        else if (drag.mode === "erase") await applyImgErase(drag.o, left, top, w, h);
+      }
+      drag = null;
+    });
+
+    document.getElementById("findOld").onclick = findOldAddress;
+    async function findOldAddress() {
+      if (!pdfDoc) return;
+      hits = [];
+      hitsEl.innerHTML = "搜尋中…";
+      for (let i = 1; i <= pdfDoc.numPages; i++) {
+        const page = await pdfDoc.getPage(i);
+        const content = await page.getTextContent();
+        content.items.forEach((it) => {
+          const str = it.str || "";
+          if (!FIND_KEYS.some((k) => str.includes(k))) return;
+          const t = it.transform;
+          hits.push({
+            page: i, x: t[4], y: t[5],
+            w: Math.max(it.width || 40, 40),
+            h: Math.max(it.height || Math.abs(t[3]) || 8, 8),
+            str,
+          });
+        });
+      }
+      renderHits();
+      drawLayer();
+    }
+    function renderHits() {
+      hitsEl.innerHTML = "";
+      if (!hits.length) {
+        hitsEl.innerHTML = '<p class="hint">沒找到文字層。請用遮蓋 + 文字（Regular）。</p>';
+        return;
+      }
+      const all = document.createElement("button");
+      all.className = "primary";
+      all.textContent = "全部改為新地址（" + hits.length + " 處）";
+      all.onclick = async () => {
+        snapshot();
+        hits.forEach(replaceHitSilent);
+        pageNum = hits[0].page;
+        await renderPage();
+      };
+      hitsEl.appendChild(all);
+      hits.forEach((h) => {
+        const b = document.createElement("button");
+        b.textContent = "第 " + h.page + " 頁：" + h.str;
+        b.onclick = async () => {
+          pageNum = h.page;
+          await renderPage();
+          snapshot();
+          replaceHitSilent(h);
+          drawLayer();
+        };
+        hitsEl.appendChild(b);
+      });
+    }
+    function replaceHitSilent(h) {
+      const f = currentFont();
+      overlays.push({
+        id: uid(), page: h.page, type: "cover",
+        x: h.x - 1, y: h.y - 1, w: Math.max(h.w + 2, 120), h: h.h + 3, fill: "#ffffff",
+      });
+      overlays.push({
+        id: uid(), page: h.page, type: "text",
+        x: h.x, y: h.y - 1, w: Math.max(h.w + 80, 220), h: Math.max(h.h + 4, 36),
+        text: ADDR_BLOCK, fontSize: 8, color: "#111111",
+        fontFamily: f.family, fontWeight: f.weight, fontIndex: Number(fontFamily.value) || 0,
+      });
+    }
+
+    function wrapText(c2d, text, maxWidth) {
+      const lines = [];
+      String(text || "").split("\n").forEach((para) => {
+        if (!para) { lines.push(""); return; }
+        let line = "";
+        for (const ch of para) {
+          const next = line + ch;
+          if (c2d.measureText(next).width > maxWidth && line) {
+            lines.push(line);
+            line = ch;
+          } else line = next;
+        }
+        lines.push(line);
+      });
+      return lines;
+    }
+
+    async function renderTextPng(o) {
+      await document.fonts.ready;
+      const fam = o.fontFamily || "Noto Sans CJK TC";
+      const weight = o.fontWeight || "400";
+      try { await document.fonts.load(weight + " 24px \"" + fam + "\""); } catch (e) {}
+      const dpr = 4;
+      const w = Math.max(2, o.w);
+      const h = Math.max(2, o.h);
+      const c = document.createElement("canvas");
+      c.width = Math.ceil(w * dpr);
+      c.height = Math.ceil(h * dpr);
+      const c2d = c.getContext("2d");
+      c2d.scale(dpr, dpr);
+      c2d.clearRect(0, 0, w, h);
+      c2d.fillStyle = o.color || "#111";
+      c2d.font = weight + " " + o.fontSize + 'px "' + fam + '", "Microsoft JhengHei", sans-serif';
+      c2d.textBaseline = "top";
+      wrapText(c2d, o.text, w - 1).forEach((line, i) => c2d.fillText(line, 0.5, i * o.fontSize * 1.25));
+      return new Promise((resolve) => c.toBlob((blob) => resolve(blob), "image/png"));
+    }
+    function dataUrlToBytes(dataUrl) {
+      const b64 = dataUrl.split(",")[1];
+      const bin = atob(b64);
+      const bytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      return bytes;
+    }
+
+    saveBtn.onclick = exportPdf;
+    async function exportPdf() {
+      if (!pdfBytes) return;
+      saveBtn.disabled = true;
+      saveBtn.textContent = "匯出中…";
+      try {
+        const { PDFDocument, rgb } = PDFLib;
+        const doc = await PDFDocument.load(pdfBytes);
+        const pages = doc.getPages();
+        for (const o of overlays) {
+          const page = pages[o.page - 1];
+          if (!page) continue;
+          if (o.type === "cover") {
+            const hex = (o.fill || "#ffffff").replace("#", "");
+            page.drawRectangle({
+              x: o.x, y: o.y, width: o.w, height: o.h,
+              color: rgb(parseInt(hex.slice(0, 2), 16) / 255, parseInt(hex.slice(2, 4), 16) / 255, parseInt(hex.slice(4, 6), 16) / 255),
+            });
+          } else if (o.type === "text" && o.text) {
+            const blob = await renderTextPng(o);
+            const img = await doc.embedPng(new Uint8Array(await blob.arrayBuffer()));
+            page.drawImage(img, { x: o.x, y: o.y, width: o.w, height: o.h });
+          } else if (o.type === "image" && o.dataUrl) {
+            const bytes = dataUrlToBytes(o.dataUrl);
+            const img = (o.dataUrl.indexOf("image/jpeg") >= 0 || o.dataUrl.indexOf("image/jpg") >= 0)
+              ? await doc.embedJpg(bytes)
+              : await doc.embedPng(bytes);
+            page.drawImage(img, { x: o.x, y: o.y, width: o.w, height: o.h });
+          }
+        }
+        const out = await doc.save();
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(new Blob([out], { type: "application/pdf" }));
+        a.download = fileName;
+        a.click();
+        URL.revokeObjectURL(a.href);
+      } catch (err) {
+        alert("匯出失敗：" + err.message);
+      }
+      saveBtn.disabled = false;
+      saveBtn.textContent = "匯出 PDF";
+    }
+
+    updateZoomLabel();
+  </script>
+</body>
+</html>

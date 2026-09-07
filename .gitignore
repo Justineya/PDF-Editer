@@ -1,0 +1,12 @@
+node_modules
+dist
+.DS_Store
+*.local
+.vite
+apps/web/dist
+apps/web/node_modules
+apps/web/src-tauri/target
+artifacts/
+assets/fonts/tc/.cache/
+# Full Adobe OTFs are huge; commit subsets + allow user drop-ins
+assets/fonts/tc/SourceHanSansTC-Normal.otf

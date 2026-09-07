@@ -1,0 +1,12 @@
+{
+  "id": "P1-address-cn-pt",
+  "source": "origin/main 澳门修改测试版 index.html ADDR_BLOCK",
+  "zh": "澳門南灣湖景大馬路810號中國工商銀行大廈6樓E座",
+  "pt": "Avenida Panorâmica do Lago Nam Van, nº 810, Edif. ICBC Tower, 6º andar E, Macau",
+  "block": "澳門南灣湖景大馬路810號中國工商銀行大廈6樓E座\nAvenida Panorâmica do Lago Nam Van, nº 810,\nEdif. ICBC Tower, 6º andar E, Macau",
+  "bldg": "中國工商銀行大廈",
+  "findKeys": ["財神", "财神", "Fortune", "FORTUNE", "Edifício Fortune", "Edificio Fortune"],
+  "font": "tc-regular",
+  "altFont": "tc-light",
+  "note": "用户原型建议地址用 Regular；仍提供 Light/DemiLight。导出必须矢量 OTF，禁止 Canvas PNG。"
+}
