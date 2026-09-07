@@ -25,7 +25,6 @@ import {
   type PageSelection,
 } from '../pdf/selection'
 import { getPageTextItemRects, hitTestTextItem } from '../pdf/textLayer'
-import { layoutTextBlock } from '../pdf/textLayout'
 import { PageTextLayer } from './PageTextLayer'
 import { SelectionToolbar } from './SelectionToolbar'
 import { EditObjectLayer } from './EditObjectLayer'

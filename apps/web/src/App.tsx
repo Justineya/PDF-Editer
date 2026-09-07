@@ -955,7 +955,12 @@ useEffect(() => {
                     color: patch.textColor ?? o.color,
                   }
                   const laid = layoutTextBlock(next.text, next.fontSize, next.w)
-                  return { ...next, h: Math.max(laid.h, next.h ?? 0) }
+                  // Grow box when font size up; never fight a user-shrunk box on color/font-family only
+                  const h =
+                    patch.fontSize != null
+                      ? Math.max(laid.h, next.h ?? 0)
+                      : (next.h ?? laid.h)
+                  return { ...next, h }
                 }),
               }))
             }
