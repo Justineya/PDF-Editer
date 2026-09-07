@@ -56,6 +56,7 @@ import {
   findOldAddressHits,
   type AddressHit,
 } from './pdf/macauAddress'
+import { layoutTextBlock } from './pdf/textLayout'
 import {
   comparePageCanvases,
   downloadBytes,
@@ -203,6 +204,21 @@ export default function App() {
     },
     [activeId, history],
   )
+
+  // Keep style bar in sync with the selected text object
+  useEffect(() => {
+    if (!selectedEdit || selectedEdit.kind !== 'text' || !active) return
+    const o = active.overlays.find((x) => x.id === selectedEdit.id)
+    if (!o) return
+    setEditStyle((s) => ({
+      ...s,
+      fontFamily: o.fontFamily || 'tc-regular',
+      fontSize: o.fontSize,
+      textColor: o.color,
+    }))
+    // Only when selection identity changes — not on every overlay mutate
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedEdit?.kind, selectedEdit?.id, activeId])
 
   // Delete / Escape for selected edit objects
   useEffect(() => {
@@ -923,7 +939,27 @@ useEffect(() => {
           editTool={editTool}
           onChange={setEditTool}
           style={editStyle}
-          onStyleChange={(patch) => setEditStyle((s) => ({ ...s, ...patch }))}
+          onStyleChange={(patch) => {
+            setEditStyle((s) => ({ ...s, ...patch }))
+            if (selectedEdit?.kind === 'text' && active) {
+              const id = selectedEdit.id
+              updateActive((d) => ({
+                ...d,
+                dirty: true,
+                overlays: d.overlays.map((o) => {
+                  if (o.id !== id) return o
+                  const next = {
+                    ...o,
+                    fontFamily: patch.fontFamily ?? o.fontFamily,
+                    fontSize: patch.fontSize ?? o.fontSize,
+                    color: patch.textColor ?? o.color,
+                  }
+                  const laid = layoutTextBlock(next.text, next.fontSize, next.w)
+                  return { ...next, h: Math.max(laid.h, next.h ?? 0) }
+                }),
+              }))
+            }
+          }}
         />
       )}
 

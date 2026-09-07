@@ -16,6 +16,7 @@ import type {
   WatermarkSpec,
   WhiteoutRect,
 } from '../types'
+import { layoutTextBlock } from './textLayout'
 
 function hexToRgb(hex: string) {
   const h = hex.replace('#', '')
@@ -184,30 +185,25 @@ async function drawOverlays(
       t.fontFamily === 'tc-regular' ||
       t.fontFamily === 'tc-bold' ||
       t.fontFamily === 'sans-cjk'
-    // Match on-screen CSS: top-left origin, top-aligned runs, ~1.25 line-height.
-    // pdf-lib drawText y is baseline — NOT the CSS `top`.
     const size = t.fontSize
     const lineHeight = size * 1.25
-    const lines = String(t.text ?? '').split(/\r?\n/)
+    // Honor explicit newlines + CJK-aware wrap to box width (no pdf-lib maxWidth orphans).
+    const { lines } = layoutTextBlock(t.text, size, t.w)
     lines.forEach((line, i) => {
-      const content = line
-      if (!content) return
-      // CSS top = t.y → first baseline ≈ t.y + size (descending screen Y)
+      if (!line) return
       const baselineScreenY = t.y + size * 0.9 + i * lineHeight
       const pdfY = height - baselineScreenY
       try {
-        page.drawText(content, {
+        page.drawText(line, {
           x: t.x,
           y: pdfY,
           size,
           font: textFont,
           color: hexToRgb(t.color),
-          maxWidth: t.w && t.w > 8 ? t.w : undefined,
-          lineHeight,
         })
       } catch (err) {
         if (useVectorCjk) throw err
-        page.drawText(content.replace(/[^\x00-\xFF]/g, '?'), {
+        page.drawText(line.replace(/[^\x00-\xFF]/g, '?'), {
           x: t.x,
           y: pdfY,
           size,

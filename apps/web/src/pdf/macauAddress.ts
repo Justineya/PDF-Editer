@@ -1,6 +1,7 @@
 import type { PDFDocumentProxy } from 'pdfjs-dist'
 import { MACAU_ADDR } from '@forgepdf/overlay-fonts'
 import { getPageTextItemRects } from './textLayer'
+import { layoutTextBlock } from './textLayout'
 import type { OverlayText, WhiteoutRect } from '../types'
 
 export { MACAU_ADDR }
@@ -39,13 +40,11 @@ export function coverAndRetypeHit(
   },
 ): { cover: WhiteoutRect; text: OverlayText } {
   const fontSize = opts.fontSize ?? 8
-  const lines = String(text).split(/\r?\n/)
-  const lineHeight = fontSize * 1.25
-  const blockH = Math.max(hit.rect.h + 4, lines.length * lineHeight + 4)
-  // Estimate width: CJK ~1em, Latin ~0.55em
-  const longest = lines.reduce((m, l) => Math.max(m, l.length), 0)
-  const blockW = Math.max(hit.rect.w + 8, longest * fontSize * 0.7, 220)
-  const pad = 2
+  // Natural width of longest line — avoid forcing wrap that orphans「座」
+  const natural = layoutTextBlock(text, fontSize)
+  const blockW = Math.max(hit.rect.w + 8, natural.w + 4, 240)
+  const laid = layoutTextBlock(text, fontSize, blockW)
+  const pad = 3
   const cover: WhiteoutRect = {
     id: opts.idCover,
     pageIndex: hit.pageIndex,
@@ -53,7 +52,7 @@ export function coverAndRetypeHit(
       x: Math.max(0, hit.rect.x - pad),
       y: Math.max(0, hit.rect.y - pad),
       w: blockW + pad * 2,
-      h: blockH + pad * 2,
+      h: laid.h + pad * 2,
     },
     color: '#ffffff',
     shape: 'rect',
@@ -68,7 +67,7 @@ export function coverAndRetypeHit(
     color: opts.color ?? '#111111',
     fontFamily: opts.fontFamily ?? 'tc-regular',
     w: blockW,
-    h: blockH,
+    h: laid.h,
   }
   return { cover, text: textObj }
 }

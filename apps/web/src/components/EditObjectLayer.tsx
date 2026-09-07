@@ -6,11 +6,12 @@ import type {
   Rect,
   WhiteoutRect,
 } from '../types'
+import { layoutTextBlock } from '../pdf/textLayout'
+import { FONT_OPTIONS } from './EditToolbar'
 
 type Props = {
   scale: number
   pageIndex: number
-  /** Prefer true for every edit tool so objects stay clickable. */
   interactive: boolean
   overlays: OverlayText[]
   images: OverlayImage[]
@@ -27,20 +28,34 @@ function safePointerCapture(el: HTMLElement, pointerId: number) {
   try {
     el.setPointerCapture(pointerId)
   } catch {
-    /* Synthetic / already-released pointers throw NotFoundError */
+    /* ignore */
   }
 }
 
-function approxTextSize(o: OverlayText): { w: number; h: number } {
-  const h = o.h ?? o.fontSize * 1.35
-  const w = o.w ?? Math.max(40, o.text.length * o.fontSize * 0.62)
-  return { w, h }
+function cssFont(family?: string) {
+  return (
+    FONT_OPTIONS.find((f) => f.id === family)?.css ??
+    '"Source Han Sans TC", "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", sans-serif'
+  )
 }
 
-/**
- * Click selects, double-click edits text, chrome Delete removes.
- * Objects stay above the page overlay so they can be selected anytime.
- */
+function cssWeight(family?: string, bold?: boolean): number {
+  if (bold || family === 'tc-bold') return 700
+  if (family === 'tc-light') return 300
+  if (family === 'tc-demilight') return 350
+  return 400
+}
+
+function textRect(o: OverlayText): Rect {
+  const laid = layoutTextBlock(o.text, o.fontSize, o.w)
+  return {
+    x: o.x,
+    y: o.y,
+    w: o.w ?? laid.w,
+    h: o.h ?? laid.h,
+  }
+}
+
 export function EditObjectLayer({
   scale,
   pageIndex,
@@ -86,6 +101,40 @@ export function EditObjectLayer({
     if (selected?.kind !== 'text' || selected.id !== editingId) setEditingId(null)
   }, [selected, editingId])
 
+  useEffect(() => {
+    const onMoveWin = (e: PointerEvent) => {
+      if (drag.current) {
+        const dx = (e.clientX - drag.current.ox) / scale
+        const dy = (e.clientY - drag.current.oy) / scale
+        onMove(drag.current.ref, drag.current.start.x + dx, drag.current.start.y + dy)
+        return
+      }
+      if (resize.current) {
+        const dx = (e.clientX - resize.current.originX) / scale
+        const dy = (e.clientY - resize.current.originY) / scale
+        const s = resize.current.start
+        onResize(resize.current.ref, {
+          x: s.x,
+          y: s.y,
+          w: Math.max(24, s.w + dx),
+          h: Math.max(16, s.h + dy),
+        })
+      }
+    }
+    const onUpWin = () => {
+      drag.current = null
+      resize.current = null
+    }
+    window.addEventListener('pointermove', onMoveWin)
+    window.addEventListener('pointerup', onUpWin)
+    window.addEventListener('pointercancel', onUpWin)
+    return () => {
+      window.removeEventListener('pointermove', onMoveWin)
+      window.removeEventListener('pointerup', onUpWin)
+      window.removeEventListener('pointercancel', onUpWin)
+    }
+  }, [scale, onMove, onResize])
+
   const isSelected = (kind: EditObjectRef['kind'], id: string) =>
     selected?.kind === kind && selected.id === id
 
@@ -95,34 +144,10 @@ export function EditObjectLayer({
       e.stopPropagation()
       e.preventDefault()
       onSelect(ref)
+      resize.current = null
       safePointerCapture(e.currentTarget as HTMLElement, e.pointerId)
       drag.current = { ref, ox: e.clientX, oy: e.clientY, start: { ...rect } }
     }
-
-  const onPointerMove = (e: ReactPointerEvent) => {
-    if (drag.current) {
-      const dx = (e.clientX - drag.current.ox) / scale
-      const dy = (e.clientY - drag.current.oy) / scale
-      onMove(drag.current.ref, drag.current.start.x + dx, drag.current.start.y + dy)
-      return
-    }
-    if (resize.current) {
-      const dx = (e.clientX - resize.current.originX) / scale
-      const dy = (e.clientY - resize.current.originY) / scale
-      const s = resize.current.start
-      onResize(resize.current.ref, {
-        x: s.x,
-        y: s.y,
-        w: Math.max(16, s.w + dx),
-        h: Math.max(12, s.h + dy),
-      })
-    }
-  }
-
-  const onPointerUp = () => {
-    drag.current = null
-    resize.current = null
-  }
 
   const startResize =
     (ref: EditObjectRef, rect: Rect, locked?: boolean) => (e: ReactPointerEvent) => {
@@ -130,6 +155,7 @@ export function EditObjectLayer({
       e.stopPropagation()
       e.preventDefault()
       onSelect(ref)
+      drag.current = null
       safePointerCapture(e.currentTarget as HTMLElement, e.pointerId)
       resize.current = { ref, start: { ...rect }, originX: e.clientX, originY: e.clientY }
     }
@@ -160,12 +186,7 @@ export function EditObjectLayer({
   )
 
   return (
-    <div
-      className={`edit-object-layer ${interactive ? 'is-interactive' : ''}`}
-      onPointerMove={onPointerMove}
-      onPointerUp={onPointerUp}
-      onPointerLeave={onPointerUp}
-    >
+    <div className={`edit-object-layer ${interactive ? 'is-interactive' : ''}`}>
       {whiteouts
         .filter((w) => w.pageIndex === pageIndex)
         .map((w) => {
@@ -184,7 +205,7 @@ export function EditObjectLayer({
                 borderRadius: w.shape === 'ellipse' ? '50%' : undefined,
               }}
               onPointerDown={onPointerDownMove(ref, w.rect, w.locked)}
-              title="图形 · 单击选中，可拖动 / 删除"
+              title="图形 · 拖动 / 右下角缩放"
             >
               {sel && (
                 <>
@@ -216,7 +237,7 @@ export function EditObjectLayer({
                 height: o.h * scale,
               }}
               onPointerDown={onPointerDownMove(ref, rect, o.locked)}
-              title="图片 · 单击选中，可拖动 / 删除"
+              title="图片 · 拖动 / 右下角缩放"
             >
               <img src={o.dataUrl} alt="" draggable={false} />
               {sel && (
@@ -234,8 +255,7 @@ export function EditObjectLayer({
         .map((o) => {
           const sel = isSelected('text', o.id)
           const ref: EditObjectRef = { kind: 'text', id: o.id }
-          const size = approxTextSize(o)
-          const rect: Rect = { x: o.x, y: o.y, w: size.w, h: size.h }
+          const rect = textRect(o)
           const editing = editingId === o.id
           return (
             <div
@@ -244,26 +264,15 @@ export function EditObjectLayer({
               style={{
                 left: o.x * scale,
                 top: o.y * scale,
-                minWidth: size.w * scale,
-                minHeight: size.h * scale,
+                width: rect.w * scale,
+                height: rect.h * scale,
                 color: o.color,
                 fontSize: o.fontSize * scale,
-                fontWeight: o.bold ? 700 : 400,
+                fontWeight: cssWeight(o.fontFamily, o.bold),
                 lineHeight: 1.25,
                 whiteSpace: 'pre-wrap',
-                fontFamily: (
-                  o.fontFamily === 'tc-regular' || o.fontFamily === 'sans-cjk'
-                    ? '"Source Han Sans TC", "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", sans-serif'
-                    : o.fontFamily === 'tc-light'
-                      ? '"Source Han Sans TC Light", "Noto Sans TC", "PingFang TC", sans-serif'
-                      : o.fontFamily === 'tc-demilight'
-                        ? '"Source Han Sans TC", "Noto Sans TC", "PingFang TC", sans-serif'
-                        : o.fontFamily === 'times'
-                          ? '"Times New Roman", Times, serif'
-                          : o.fontFamily === 'courier'
-                            ? '"Courier New", Courier, monospace'
-                            : 'Helvetica, Arial, sans-serif'
-                ),
+                overflow: 'visible',
+                fontFamily: cssFont(o.fontFamily),
               }}
               onPointerDown={editing ? undefined : onPointerDownMove(ref, rect, o.locked)}
               onDoubleClick={(e) => {
@@ -271,7 +280,7 @@ export function EditObjectLayer({
                 onSelect(ref)
                 setEditingId(o.id)
               }}
-              title="文字 · 单击选中，双击编辑"
+              title="文字 · 拖右下角缩放 · 样式条改字体"
             >
               {editing ? (
                 <div

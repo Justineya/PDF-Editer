@@ -25,6 +25,7 @@ import {
   type PageSelection,
 } from '../pdf/selection'
 import { getPageTextItemRects, hitTestTextItem } from '../pdf/textLayer'
+import { layoutTextBlock } from '../pdf/textLayout'
 import { PageTextLayer } from './PageTextLayer'
 import { SelectionToolbar } from './SelectionToolbar'
 import { EditObjectLayer } from './EditObjectLayer'
@@ -690,9 +691,18 @@ export function PageView({
                 return {
                   ...d,
                   dirty: true,
-                  overlays: d.overlays.map((o) =>
-                    o.id === ref.id ? { ...o, x: rect.x, y: rect.y, w: rect.w, h: rect.h } : o,
-                  ),
+                  overlays: d.overlays.map((o) => {
+                    if (o.id !== ref.id) return o
+                    // Width drives wrap; keep user height but never shorter than laid-out lines
+                    const laid = layoutTextBlock(o.text, o.fontSize, rect.w)
+                    return {
+                      ...o,
+                      x: rect.x,
+                      y: rect.y,
+                      w: rect.w,
+                      h: Math.max(rect.h, laid.h),
+                    }
+                  }),
                 }
               }
               if (ref.kind === 'image') {
