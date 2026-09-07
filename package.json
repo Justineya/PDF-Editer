@@ -19,7 +19,8 @@
     "samples:phase1": "node ./scripts/gen-phase1-samples.mjs",
     "smoke:phase1": "node --experimental-strip-types ./scripts/smoke-phase1-overlay.mjs",
     "smoke:multiline": "node --experimental-strip-types ./scripts/smoke-multiline-export.mjs",
-    "smoke:textlayout": "node --experimental-strip-types ./scripts/smoke-text-layout.mjs"
+    "smoke:textlayout": "node --experimental-strip-types ./scripts/smoke-text-layout.mjs",
+    "smoke:cluster": "node --experimental-strip-types ./scripts/smoke-address-cluster.mjs"
   },
   "engines": {
     "node": ">=20"

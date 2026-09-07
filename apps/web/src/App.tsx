@@ -1429,7 +1429,13 @@ useEffect(() => {
                       type="button"
                       className="primary"
                       onClick={() => {
-                        const text = editText.trim() || MACAU_ADDR.block
+                        // Prefer full ZH+PT block for letterhead replace (avoids PT-only overlay
+                        // leaving Chinese「810」「6 E」fragments visible above).
+                        const typed = editText.trim()
+                        const text =
+                          typed.includes('澳門') || typed.includes('Avenida')
+                            ? typed
+                            : MACAU_ADDR.block
                         updateActive((d) => {
                           const covers = [...(d.whiteouts ?? [])]
                           const texts = [...d.overlays]
@@ -1439,23 +1445,30 @@ useEffect(() => {
                               idText: uuid(),
                               fontFamily: editStyle.fontFamily || 'tc-regular',
                               fontSize: editStyle.fontSize || 8,
-                              color: editStyle.textColor,
+                              color: editStyle.textColor || '#111111',
                             })
                             covers.push(pair.cover)
                             texts.push(pair.text)
                           }
                           return { ...d, whiteouts: covers, overlays: texts, dirty: true }
                         })
+                        setEditText(text)
                         setEditTool('select')
-                        show(`已遮盖并重打 ${addressHits.length} 处（矢量叠字）`)
+                        show(
+                          `已遮盖并重打 ${addressHits.length} 处（已扩大到整块地址，含 810/6E 碎片）`,
+                        )
                       }}
                     >
                       全部改为新地址（{addressHits.length} 处）
                     </button>
+                    <p className="muted" style={{ margin: '0.35rem 0 0' }}>
+                      若仍见到旧字：选中白色遮盖框，拖右下角放大盖住，再导出。
+                    </p>
                     <div className="muted">
                       {addressHits.slice(0, 8).map((h, i) => (
                         <div key={`${h.pageIndex}-${i}`}>
-                          第 {h.pageIndex + 1} 页：{h.str.slice(0, 36)}
+                          第 {h.pageIndex + 1} 页：{h.str.slice(0, 36)}（遮盖{' '}
+                          {Math.round(h.rect.w)}×{Math.round(h.rect.h)}）
                         </div>
                       ))}
                     </div>

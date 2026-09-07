@@ -188,7 +188,19 @@ async function drawOverlays(
     const size = t.fontSize
     const lineHeight = size * 1.25
     // Honor explicit newlines + CJK-aware wrap to box width (no pdf-lib maxWidth orphans).
-    const { lines } = layoutTextBlock(t.text, size, t.w)
+    const { lines, w: laidW, h: laidH } = layoutTextBlock(t.text, size, t.w)
+    const boxW = Math.max(t.w ?? 0, laidW, 8)
+    const boxH = Math.max(t.h ?? 0, laidH, size * 1.25)
+    // Safety underpaint: wipe the text box even if a separate whiteout missed glyphs
+    // like stray「810」「6 E」from a fragmented letterhead text layer.
+    page.drawRectangle({
+      x: Math.max(0, t.x - 3),
+      y: height - (t.y + boxH) - 3,
+      width: boxW + 6,
+      height: boxH + 6,
+      color: hexToRgb('#ffffff'),
+      borderWidth: 0,
+    })
     lines.forEach((line, i) => {
       if (!line) return
       const baselineScreenY = t.y + size * 0.9 + i * lineHeight
