@@ -51,6 +51,12 @@ import {
 } from './pdf/ops'
 import { rewritePageRegionText } from './pdf/contentStreamEdit'
 import {
+  MACAU_ADDR,
+  coverAndRetypeHit,
+  findOldAddressHits,
+  type AddressHit,
+} from './pdf/macauAddress'
+import {
   comparePageCanvases,
   downloadBytes,
   downloadText,
@@ -165,6 +171,7 @@ export default function App() {
   const [pendingSelection, setPendingSelection] = useState<PageSelection | null>(null)
   const history = useDocHistory(activeId)
   const [editText, setEditText] = useState('')
+  const [addressHits, setAddressHits] = useState<AddressHit[]>([])
   const [watermarkText, setWatermarkText] = useState('CONFIDENTIAL')
   const [signatureDataUrl, setSignatureDataUrl] = useState<string | null>(null)
   const [compareResult, setCompareResult] = useState<{ pct: number; url: string } | null>(null)
@@ -1331,6 +1338,94 @@ useEffect(() => {
                   <strong>{EDIT_TOOL_META[editTool].label}</strong>
                   <p className="muted">{EDIT_TOOL_META[editTool].hint}</p>
                 </div>
+
+                <div className="divider" />
+                <h4 className="field-label">澳门改址（取自你的投保书原型）</h4>
+                <p className="muted">
+                  遮盖旧址 → TC Regular 矢量重打。导出不用 Canvas PNG。
+                </p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditText(MACAU_ADDR.block)
+                    setEditStyle((s) => ({ ...s, fontFamily: 'tc-regular', fontSize: 8 }))
+                    setEditTool('text')
+                    show('已预填中葡地址；选「文字」后点击页面放置')
+                  }}
+                >
+                  预填：中文＋葡文地址
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditText(MACAU_ADDR.bldg)
+                    setEditStyle((s) => ({ ...s, fontFamily: 'tc-regular', fontSize: 10 }))
+                    setEditTool('text')
+                    show('已预填大厦名')
+                  }}
+                >
+                  预填：只改大厦名称
+                </button>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const pdf = getCachedPdf(active.id)
+                    if (!pdf) return
+                    setBusy('搜寻旧址…')
+                    try {
+                      const hits = await findOldAddressHits(pdf)
+                      setAddressHits(hits)
+                      if (!hits.length) {
+                        show('未找到文字层命中（財神/Fortune）。投保书图档请手动遮盖+文字。')
+                      } else {
+                        show(`找到 ${hits.length} 处旧址线索`)
+                      }
+                    } finally {
+                      setBusy(null)
+                    }
+                  }}
+                >
+                  搜寻「財神／Fortune」
+                </button>
+                {addressHits.length > 0 && (
+                  <>
+                    <button
+                      type="button"
+                      className="primary"
+                      onClick={() => {
+                        const text = editText.trim() || MACAU_ADDR.block
+                        updateActive((d) => {
+                          const covers = [...(d.whiteouts ?? [])]
+                          const texts = [...d.overlays]
+                          for (const hit of addressHits) {
+                            const pair = coverAndRetypeHit(hit, text, {
+                              idCover: uuid(),
+                              idText: uuid(),
+                              fontFamily: editStyle.fontFamily || 'tc-regular',
+                              fontSize: editStyle.fontSize || 8,
+                              color: editStyle.textColor,
+                            })
+                            covers.push(pair.cover)
+                            texts.push(pair.text)
+                          }
+                          return { ...d, whiteouts: covers, overlays: texts, dirty: true }
+                        })
+                        setEditTool('select')
+                        show(`已遮盖并重打 ${addressHits.length} 处（矢量叠字）`)
+                      }}
+                    >
+                      全部改为新地址（{addressHits.length} 处）
+                    </button>
+                    <div className="muted">
+                      {addressHits.slice(0, 8).map((h, i) => (
+                        <div key={`${h.pageIndex}-${i}`}>
+                          第 {h.pageIndex + 1} 页：{h.str.slice(0, 36)}
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                )}
+
                 {editTool === 'select' && (
                   <ol className="edit-steps muted">
                     <li>单击已有对象即可选中（文字 / 矩形 / 图片）</li>
@@ -1340,7 +1435,7 @@ useEffect(() => {
                 )}
                 {editTool === 'shape' && (
                   <ol className="edit-steps muted">
-                    <li>上方选好填充颜色</li>
+                    <li>上方选好填充颜色（遮盖旧址用白色）</li>
                     <li>在页面上按住左键拖拽画出矩形</li>
                     <li>松手后自动选中，可再拖动 / 删除</li>
                   </ol>
@@ -1353,15 +1448,19 @@ useEffect(() => {
                   </ol>
                 )}
                 <label className="field-label">默认文字（可选预填）</label>
-                <input
-                  type="text"
+                <textarea
                   value={editText}
                   onChange={(e) => setEditText(e.target.value)}
-                  placeholder="框选后可修改"
+                  placeholder="框选后可修改；可用上方澳门地址预填"
+                  rows={4}
+                  style={{ width: '100%', resize: 'vertical' }}
                 />
                 <button type="button" onClick={() => imageRef.current?.click()}>
                   插入图片…
                 </button>
+                <div className="muted">
+                  图片裁切／擦白：下一刀从你的原型移植；本期先支持插入+移动缩放。
+                </div>
                 <div className="divider" />
                 <label className="field-label">水印文字</label>
                 <input
@@ -1391,7 +1490,7 @@ useEffect(() => {
                   视觉遮盖工具…
                 </button>
                 <div className="muted">
-                  先在上方选好字体/字号/填色/形状，再放置。改原文不再自动盖白块。Delete 删除选中对象。
+                  地址请用 TC Regular 矢量叠字。改原文不再自动盖白块。Delete 删除选中对象。
                 </div>
                 <div className="divider" />
                 <h4 className="field-label">对象列表（点选 / 删除）</h4>

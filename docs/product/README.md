@@ -21,6 +21,7 @@
 | [08 桌面壳 Tauri](./08-desktop-tauri.md) | 原生打开/保存 |
 | [09 WPS 第 1 期对照清单](./09-wps-phase1-checklist.md) | **现行交付范围（冻结网页堆功能）** |
 | [10 本机资产导入](./10-asset-import.md) | `pdf编辑器/` · `字体/` 对齐方式 |
+| [11 澳门原型可取之处](./11-macau-prototype-salvage.md) | 投保书编辑器：采纳 / 不采纳 |
 
 ## 已知体验缺口（2026-09，冒烟实测）
 
