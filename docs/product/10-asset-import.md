@@ -23,22 +23,33 @@ node scripts/fetch-tc-fonts.mjs --subset # 仅地址样张子集（默认已提�
 
 ## `pdf编辑器/`（叠层编辑）
 
-期望从该目录复用的能力：
+用户已把「澳门修改测试版」提交到 `main` 的根 `index.html`。  
+本分支将其保存为参考：`vendor/macau-editor/index.html`。
 
-1. 对象层：文本框 / 擦除块 / 图片  
-2. 选中 · 拖移 · 删除 · 另存扁平化  
-3. 先选字体再放置  
+期望复用的能力：
+
+1. 对象层：文本框 / 遮盖(擦除) / 图片（含裁切、擦白）
+2. 中葡地址预设 `ADDR_BLOCK`（已同步到 `samples/phase1/address-copy.json`）
+3. 搜旧址关键词（財神 / Fortune…）→ 遮盖 + 重打
+4. 选中 · 拖移 · 删除 · 另存
+
+**不要再复用**原型里的 `renderTextPng` 导出路径。
 
 本仓库对应实现：
 
-- 模型：`packages/doc-model`  
-- 字体注册与嵌入：`packages/overlay-fonts`  
-- UI 对象层（暂用现有）：`apps/web/src/components/EditObjectLayer.tsx`  
-- 写回：`apps/web/src/pdf/ops.ts`（经 fontkit 嵌 OTF）
-
-若你后续把 `pdf编辑器/` 源码放进仓库（例如 `vendor/pdf-editor/`），在本文件补「目录映射表」，优先替换对象层交互，**不要**再分叉一套网页工具条。
+- 模型：`packages/doc-model`
+- 字体注册与嵌入：`packages/overlay-fonts`
+- 写回：`apps/web/src/pdf/ops.ts`（fontkit 嵌 OTF）
 
 ## 地址「中葡文」样张
 
-对话里写了「用上面的中葡文」，但历史消息中 **未找到具体字符串**。  
-当前 `samples/phase1/address-copy.json` 使用 **PLACEHOLDER** 澳门双语地址；请用你的真样张替换 JSON + PDF 后重跑 smoke。
+已从用户原型提取：
+
+```
+澳門南灣湖景大馬路810號中國工商銀行大廈6樓E座
+Avenida Panorâmica do Lago Nam Van, nº 810,
+Edif. ICBC Tower, 6º andar E, Macau
+```
+
+字重：原型建议 **Regular**；ForgePDF 默认 `tc-regular`，并保留 Light/DemiLight。
+

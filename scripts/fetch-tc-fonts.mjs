@@ -16,6 +16,11 @@ const cacheDir = join(outDir, '.cache')
 
 const FILES = [
   {
+    url: 'https://raw.githubusercontent.com/adobe-fonts/source-han-sans/release/OTF/TraditionalChinese/SourceHanSansTC-Regular.otf',
+    cacheAs: 'SourceHanSansTC-Regular.otf',
+    publishAs: 'SourceHanSansTC-Regular.otf',
+  },
+  {
     url: 'https://raw.githubusercontent.com/adobe-fonts/source-han-sans/release/OTF/TraditionalChinese/SourceHanSansTC-Light.otf',
     cacheAs: 'SourceHanSansTC-Light.otf',
     publishAs: 'SourceHanSansTC-Light.otf',

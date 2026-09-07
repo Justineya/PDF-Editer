@@ -52,6 +52,11 @@ export const EDIT_TOOL_META: Record<
 
 export const FONT_OPTIONS: Array<{ id: string; label: string; css: string }> = [
   {
+    id: 'tc-regular',
+    label: 'TC Regular（地址）',
+    css: '"Source Han Sans TC", "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", sans-serif',
+  },
+  {
     id: 'tc-light',
     label: 'TC Light',
     css: '"Source Han Sans TC Light", "Noto Sans TC", "PingFang TC", sans-serif',
@@ -64,11 +69,6 @@ export const FONT_OPTIONS: Array<{ id: string; label: string; css: string }> = [
   { id: 'helvetica', label: 'Helvetica', css: 'Helvetica, Arial, sans-serif' },
   { id: 'times', label: 'Times', css: '"Times New Roman", Times, serif' },
   { id: 'courier', label: 'Courier', css: '"Courier New", Courier, monospace' },
-  {
-    id: 'sans-cjk',
-    label: '黑体(回退)',
-    css: '"Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif',
-  },
 ]
 
 const PRIMARY_TOOLS: EditTool[] = ['select', 'shape', 'text', 'image', 'replace', 'region']

@@ -153,15 +153,17 @@ function AnnotPaint(props: {
                 fontSize: o.fontSize * scale * 0.85,
                 fontWeight: o.bold ? 700 : 600,
                 fontFamily:
-                  o.fontFamily === 'tc-light' || o.fontFamily === 'sans-cjk'
-                    ? '"Source Han Sans TC Light", "Noto Sans TC", "PingFang TC", sans-serif'
-                    : o.fontFamily === 'tc-demilight'
-                      ? '"Source Han Sans TC", "Noto Sans TC", "PingFang TC", sans-serif'
-                      : o.fontFamily === 'times'
-                        ? '"Times New Roman", Times, serif'
-                        : o.fontFamily === 'courier'
-                          ? '"Courier New", Courier, monospace'
-                          : 'Helvetica, Arial, sans-serif',
+                  o.fontFamily === 'tc-regular' || o.fontFamily === 'sans-cjk'
+                    ? '"Source Han Sans TC", "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", sans-serif'
+                    : o.fontFamily === 'tc-light'
+                      ? '"Source Han Sans TC Light", "Noto Sans TC", "PingFang TC", sans-serif'
+                      : o.fontFamily === 'tc-demilight'
+                        ? '"Source Han Sans TC", "Noto Sans TC", "PingFang TC", sans-serif'
+                        : o.fontFamily === 'times'
+                          ? '"Times New Roman", Times, serif'
+                          : o.fontFamily === 'courier'
+                            ? '"Courier New", Courier, monospace'
+                            : 'Helvetica, Arial, sans-serif',
               }}
             >
               {o.text}

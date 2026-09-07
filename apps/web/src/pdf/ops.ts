@@ -139,9 +139,19 @@ function drawStamp(page: PDFPage, ann: Extract<Annotation, { kind: 'stamp' }>, f
 
 async function fontForFamily(pdf: PDFDocument, family?: string, bold?: boolean) {
   // Phase-1: TC Light/DemiLight as true vector embeds (not Canvas PNG).
-  if (family === 'tc-light' || family === 'tc-demilight' || family === 'sans-cjk') {
+  if (
+    family === 'tc-light' ||
+    family === 'tc-demilight' ||
+    family === 'tc-regular' ||
+    family === 'sans-cjk'
+  ) {
     const { embedOverlayFont } = await import('./vectorFonts')
-    const id = family === 'tc-demilight' ? 'tc-demilight' : 'tc-light'
+    const id =
+      family === 'tc-demilight'
+        ? 'tc-demilight'
+        : family === 'tc-light'
+          ? 'tc-light'
+          : 'tc-regular'
     const embedded = await embedOverlayFont(pdf, id)
     if (embedded) return embedded
   }
@@ -168,6 +178,7 @@ async function drawOverlays(
     const useVectorCjk =
       t.fontFamily === 'tc-light' ||
       t.fontFamily === 'tc-demilight' ||
+      t.fontFamily === 'tc-regular' ||
       t.fontFamily === 'sans-cjk'
     try {
       page.drawText(t.text, {

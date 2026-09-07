@@ -48,7 +48,9 @@ function resolve(id) {
           'SourceHanSansTC-DemiLight.subset.otf',
           'SourceHanSansTC-Normal.otf',
         ]
-      : ['SourceHanSansTC-Light.otf', 'SourceHanSansTC-Light.subset.otf']
+      : id === 'tc-regular'
+        ? ['SourceHanSansTC-Regular.otf', 'SourceHanSansTC-Regular.subset.otf']
+        : ['SourceHanSansTC-Light.otf', 'SourceHanSansTC-Light.subset.otf']
   for (const n of order) {
     const b = fontFiles.get(n)
     if (b && b.byteLength > 1000) return b
@@ -93,7 +95,7 @@ try {
       text: copy.zh,
       fontSize: 12,
       color: '#111111',
-      fontFamily: 'tc-light',
+      fontFamily: 'tc-regular',
     },
   )
   if (session.snapshot.texts.length !== 1 || session.snapshot.erases.length !== 1) {
@@ -115,8 +117,8 @@ try {
 const basePdf = readFileSync(join(root, 'samples/phase1/P1-address-cn-pt.pdf'))
 const pdf = await PDFDocument.load(basePdf)
 pdf.registerFontkit(fontkit)
+const fontRegular = await pdf.embedFont(resolve('tc-regular'), { subset: true })
 const fontLight = await pdf.embedFont(resolve('tc-light'), { subset: true })
-const fontDemi = await pdf.embedFont(resolve('tc-demilight'), { subset: true })
 const page = pdf.getPages()[0]
 const { height } = page.getSize()
 
@@ -140,17 +142,24 @@ page.drawRectangle({
 page.drawText(copy.zh, {
   x: 54,
   y: 728,
-  size: 14,
-  font: fontLight,
+  size: 11,
+  font: fontRegular,
   color: rgb(0.1, 0.1, 0.1),
 })
 page.drawText(copy.pt, {
   x: 54,
   y: 648,
-  size: 11,
-  font: fontDemi,
+  size: 9,
+  font: fontLight,
   color: rgb(0.1, 0.1, 0.1),
 })
+
+// Guard: must NOT be PNG-text export path
+if (copy.zh.includes('湖景') && copy.pt.includes('Panorâmica')) {
+  ok('Macau address copy from user prototype')
+} else {
+  fail('address-copy.json missing user ADDR_BLOCK')
+}
 
 // image overlay (1x1 png expanded)
 const png = Buffer.from(

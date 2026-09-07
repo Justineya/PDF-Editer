@@ -50,7 +50,7 @@ export async function embedOverlayFont(
 }
 
 export function isTcOverlayFont(family?: string): family is OverlayFontId {
-  return family === 'tc-light' || family === 'tc-demilight'
+  return family === 'tc-regular' || family === 'tc-light' || family === 'tc-demilight'
 }
 
 export { OVERLAY_FONT_FACES }
