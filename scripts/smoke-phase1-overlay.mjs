@@ -50,7 +50,9 @@ function resolve(id) {
         ]
       : id === 'tc-regular'
         ? ['SourceHanSansTC-Regular.otf', 'SourceHanSansTC-Regular.subset.otf']
-        : ['SourceHanSansTC-Light.otf', 'SourceHanSansTC-Light.subset.otf']
+        : id === 'tc-bold'
+          ? ['NotoSansCJKtc-Bold.otf', 'NotoSansCJKtc-Bold.subset.otf', 'SourceHanSansTC-Bold.otf']
+          : ['SourceHanSansTC-Light.otf', 'SourceHanSansTC-Light.subset.otf']
   for (const n of order) {
     const b = fontFiles.get(n)
     if (b && b.byteLength > 1000) return b
@@ -119,6 +121,9 @@ const pdf = await PDFDocument.load(basePdf)
 pdf.registerFontkit(fontkit)
 const fontRegular = await pdf.embedFont(resolve('tc-regular'), { subset: true })
 const fontLight = await pdf.embedFont(resolve('tc-light'), { subset: true })
+const fontBold = await pdf.embedFont(resolve('tc-bold'), { subset: true })
+ok('user-uploaded NotoSansCJKtc-Bold embeds as vector')
+void fontBold
 const page = pdf.getPages()[0]
 const { height } = page.getSize()
 

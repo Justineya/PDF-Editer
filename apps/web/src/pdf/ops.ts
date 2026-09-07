@@ -143,6 +143,7 @@ async function fontForFamily(pdf: PDFDocument, family?: string, bold?: boolean) 
     family === 'tc-light' ||
     family === 'tc-demilight' ||
     family === 'tc-regular' ||
+    family === 'tc-bold' ||
     family === 'sans-cjk'
   ) {
     const { embedOverlayFont } = await import('./vectorFonts')
@@ -151,7 +152,9 @@ async function fontForFamily(pdf: PDFDocument, family?: string, bold?: boolean) 
         ? 'tc-demilight'
         : family === 'tc-light'
           ? 'tc-light'
-          : 'tc-regular'
+          : family === 'tc-bold'
+            ? 'tc-bold'
+            : 'tc-regular'
     const embedded = await embedOverlayFont(pdf, id)
     if (embedded) return embedded
   }
@@ -179,6 +182,7 @@ async function drawOverlays(
       t.fontFamily === 'tc-light' ||
       t.fontFamily === 'tc-demilight' ||
       t.fontFamily === 'tc-regular' ||
+      t.fontFamily === 'tc-bold' ||
       t.fontFamily === 'sans-cjk'
     try {
       page.drawText(t.text, {

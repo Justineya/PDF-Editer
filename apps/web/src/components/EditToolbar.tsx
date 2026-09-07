@@ -66,6 +66,11 @@ export const FONT_OPTIONS: Array<{ id: string; label: string; css: string }> = [
     label: 'TC DemiLight',
     css: '"Source Han Sans TC", "Noto Sans TC", "PingFang TC", sans-serif',
   },
+  {
+    id: 'tc-bold',
+    label: 'TC Bold',
+    css: '"Noto Sans CJK TC", "Source Han Sans TC", "PingFang TC", sans-serif',
+  },
   { id: 'helvetica', label: 'Helvetica', css: 'Helvetica, Arial, sans-serif' },
   { id: 'times', label: 'Times', css: '"Times New Roman", Times, serif' },
   { id: 'courier', label: 'Courier', css: '"Courier New", Courier, monospace' },

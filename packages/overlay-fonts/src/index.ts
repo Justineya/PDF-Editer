@@ -6,7 +6,7 @@
  * Light / DemiLight remain available for lighter overlays.
  */
 
-export type OverlayFontId = 'tc-regular' | 'tc-light' | 'tc-demilight'
+export type OverlayFontId = 'tc-regular' | 'tc-light' | 'tc-demilight' | 'tc-bold'
 
 export type FontFaceInfo = {
   id: OverlayFontId
@@ -33,6 +33,7 @@ export const OVERLAY_FONT_FACES: FontFaceInfo[] = [
     files: [
       'SourceHanSansTC-Light.otf',
       'SourceHanSansTC-Light.subset.otf',
+      'NotoSansCJKtc-Light.otf',
     ],
     label: 'TC Light',
     css: '"Source Han Sans TC Light", "Noto Sans TC", "PingFang TC", sans-serif',
@@ -44,9 +45,20 @@ export const OVERLAY_FONT_FACES: FontFaceInfo[] = [
       'SourceHanSansTC-DemiLight.subset.otf',
       // Adobe package names DemiLight as Normal (wght 350)
       'SourceHanSansTC-Normal.otf',
+      'NotoSansCJKtc-DemiLight.otf',
     ],
     label: 'TC DemiLight',
     css: '"Source Han Sans TC", "Noto Sans TC", "PingFang TC", sans-serif',
+  },
+  {
+    id: 'tc-bold',
+    files: [
+      'NotoSansCJKtc-Bold.otf',
+      'NotoSansCJKtc-Bold.subset.otf',
+      'SourceHanSansTC-Bold.otf',
+    ],
+    label: 'TC Bold（标题用）',
+    css: '"Noto Sans CJK TC", "Source Han Sans TC", "PingFang TC", sans-serif',
   },
 ]
 
