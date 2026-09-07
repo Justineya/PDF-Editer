@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"/>
+<title>ForgePDF edit trials</title>
+<style>
+body{font-family:system-ui,sans-serif;margin:24px;background:#f4f6f5;color:#15202b}
+h1{margin:0 0 8px} .meta{color:#667;margin-bottom:24px}
+.case{background:#fff;border:1px solid #d7ddd9;border-radius:10px;padding:16px;margin-bottom:20px}
+.ok li{color:#1b6b3a}.fail li{color:#b42318}
+.shots{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;margin-top:12px}
+figure{margin:0} img{width:100%;border:1px solid #ccd;border-radius:6px;background:#fff}
+figcaption{font-size:12px;color:#667;margin-top:4px}
+.bugs{background:#fff4f2;border:1px solid #f0c2ba;padding:12px;border-radius:8px}
+</style></head><body>
+<h1>ForgePDF 编辑试用报告</h1>
+<p class="meta">2026-09-07T02:45:40.410Z · cases=3 · bugs=0</p>
+<p>未发现脚本断言失败。</p>
+<section class="case">
+      <h2>latin — Latin stream/text/shape</h2>
+      <p class="notes">zoom=150% · canvas={"bitmap":"1836x2376","css":"918x1188","dprApprox":2,"edgeDensity":1458} · regionMenu=添加文字|修改原文|填充矩形|插入图片|</p>
+      <ul class="ok"><li>OK HiDPI render ~2x</li><li>OK text edges present (1458)</li><li>OK style bar visible</li><li>OK shape created (1)</li><li>OK shape auto-selected</li><li>OK shape deleted</li><li>OK text placed: TRIAL-TEXT</li><li>OK returned to select after text</li><li>OK text re-selectable</li><li>OK no auto white block after text</li><li>OK stream-edit path exercised</li><li>OK no page errors</li></ul>
+      <ul class="fail"></ul>
+      <div class="shots"><figure><img src="latin-01-baseline.png" alt="latin-01-baseline.png"/><figcaption>latin-01-baseline.png</figcaption></figure><figure><img src="latin-02-shape.png" alt="latin-02-shape.png"/><figcaption>latin-02-shape.png</figcaption></figure><figure><img src="latin-03-text.png" alt="latin-03-text.png"/><figcaption>latin-03-text.png</figcaption></figure><figure><img src="latin-04-stream.png" alt="latin-04-stream.png"/><figcaption>latin-04-stream.png</figcaption></figure></div>
+    </section>
+<section class="case">
+      <h2>cjk — CJK UI font + ellipse</h2>
+      <p class="notes">zoom=150% · canvas={"bitmap":"1785x2526","css":"893x1263","dprApprox":2,"edgeDensity":1376}</p>
+      <ul class="ok"><li>OK HiDPI render ~2x</li><li>OK text edges present (1376)</li><li>OK style bar visible</li><li>OK shape created (1)</li><li>OK shape auto-selected</li><li>OK shape deleted</li><li>OK text placed: 中文试改</li><li>OK returned to select after text</li><li>OK text re-selectable</li><li>OK no auto white block after text</li><li>OK no page errors</li></ul>
+      <ul class="fail"></ul>
+      <div class="shots"><figure><img src="cjk-01-baseline.png" alt="cjk-01-baseline.png"/><figcaption>cjk-01-baseline.png</figcaption></figure><figure><img src="cjk-02-shape.png" alt="cjk-02-shape.png"/><figcaption>cjk-02-shape.png</figcaption></figure><figure><img src="cjk-03-text.png" alt="cjk-03-text.png"/><figcaption>cjk-03-text.png</figcaption></figure></div>
+    </section>
+<section class="case">
+      <h2>mixed — Mixed stress select/delete</h2>
+      <p class="notes">zoom=150% · canvas={"bitmap":"1836x2376","css":"918x1188","dprApprox":2,"edgeDensity":1613}</p>
+      <ul class="ok"><li>OK HiDPI render ~2x</li><li>OK text edges present (1613)</li><li>OK style bar visible</li><li>OK shape created (1)</li><li>OK shape auto-selected</li><li>OK shape deleted</li><li>OK text placed: TRIAL-TEXT</li><li>OK returned to select after text</li><li>OK text re-selectable</li><li>OK no auto white block after text</li><li>OK no page errors</li></ul>
+      <ul class="fail"></ul>
+      <div class="shots"><figure><img src="mixed-01-baseline.png" alt="mixed-01-baseline.png"/><figcaption>mixed-01-baseline.png</figcaption></figure><figure><img src="mixed-02-shape.png" alt="mixed-02-shape.png"/><figcaption>mixed-02-shape.png</figcaption></figure><figure><img src="mixed-03-text.png" alt="mixed-03-text.png"/><figcaption>mixed-03-text.png</figcaption></figure></div>
+    </section>
+</body></html>

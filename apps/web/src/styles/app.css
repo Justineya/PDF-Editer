@@ -153,7 +153,12 @@ button.active { border-color: var(--accent-2); color: var(--accent-2); font-weig
   margin-bottom: 1rem;
 }
 .page-wrap.selected { outline: 2px solid var(--accent); }
-.page-canvas { display: block; }
+.page-canvas {
+  display: block;
+  image-rendering: auto;
+  /* Avoid accidental CSS upscale blur of the bitmap */
+  max-width: none;
+}
 .page-overlay { position: absolute; inset: 0; z-index: 2; touch-action: none; }
 .annot-paint { z-index: 1; }
 .page-overlay.annotate,

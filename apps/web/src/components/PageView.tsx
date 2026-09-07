@@ -31,6 +31,15 @@ import { EditObjectLayer } from './EditObjectLayer'
 import { RegionActionMenu, type RegionAction } from './RegionActionMenu'
 import { InlineTextEditor } from './InlineTextEditor'
 
+function safePointerCapture(el: HTMLElement | null, pointerId: number) {
+  if (!el) return
+  try {
+    el.setPointerCapture(pointerId)
+  } catch {
+    /* ignore inactive pointer ids */
+  }
+}
+
 function AnnotPaint(props: {
   doc: DocumentModel
   pageIndex: number
@@ -411,7 +420,7 @@ export function PageView({
     if (mode === 'annotate' && annotTool === 'ink') {
       drawing.current = [p]
       setInkLive([p])
-      overlayRef.current?.setPointerCapture(e.pointerId)
+      safePointerCapture(overlayRef.current, e.pointerId)
       return
     }
     if (
@@ -424,7 +433,7 @@ export function PageView({
     ) {
       boxStart.current = p
       setBox({ x: p.x, y: p.y, w: 0, h: 0 })
-      overlayRef.current?.setPointerCapture(e.pointerId)
+      safePointerCapture(overlayRef.current, e.pointerId)
       return
     }
     if (mode === 'annotate' && annotTool === 'note') {
@@ -457,7 +466,7 @@ export function PageView({
       setBox({ x: p.x, y: p.y, w: 0, h: 0 })
       setPendingRegion(null)
       setInlineEdit(null)
-      overlayRef.current?.setPointerCapture(e.pointerId)
+      safePointerCapture(overlayRef.current, e.pointerId)
       return
     }
     if (mode === 'edit' && editTool === 'image') {
@@ -467,7 +476,7 @@ export function PageView({
     if (mode === 'edit' && editTool === 'shape') {
       boxStart.current = p
       setBox({ x: p.x, y: p.y, w: 0, h: 0 })
-      overlayRef.current?.setPointerCapture(e.pointerId)
+      safePointerCapture(overlayRef.current, e.pointerId)
       return
     }
     if (mode === 'edit' && editTool === 'replace') {
@@ -497,7 +506,7 @@ export function PageView({
     if (mode === 'redact') {
       boxStart.current = p
       setBox({ x: p.x, y: p.y, w: 0, h: 0 })
-      overlayRef.current?.setPointerCapture(e.pointerId)
+      safePointerCapture(overlayRef.current, e.pointerId)
     }
   }
 

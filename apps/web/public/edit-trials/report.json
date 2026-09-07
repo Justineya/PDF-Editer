@@ -1,0 +1,86 @@
+{
+  "startedAt": "2026-09-07T02:45:40.410Z",
+  "cases": [
+    {
+      "id": "latin",
+      "title": "Latin stream/text/shape",
+      "ok": [
+        "HiDPI render ~2x",
+        "text edges present (1458)",
+        "style bar visible",
+        "shape created (1)",
+        "shape auto-selected",
+        "shape deleted",
+        "text placed: TRIAL-TEXT",
+        "returned to select after text",
+        "text re-selectable",
+        "no auto white block after text",
+        "stream-edit path exercised",
+        "no page errors"
+      ],
+      "fail": [],
+      "notes": [
+        "zoom=150%",
+        "canvas={\"bitmap\":\"1836x2376\",\"css\":\"918x1188\",\"dprApprox\":2,\"edgeDensity\":1458}",
+        "regionMenu=添加文字|修改原文|填充矩形|插入图片|"
+      ]
+    },
+    {
+      "id": "cjk",
+      "title": "CJK UI font + ellipse",
+      "ok": [
+        "HiDPI render ~2x",
+        "text edges present (1376)",
+        "style bar visible",
+        "shape created (1)",
+        "shape auto-selected",
+        "shape deleted",
+        "text placed: 中文试改",
+        "returned to select after text",
+        "text re-selectable",
+        "no auto white block after text",
+        "no page errors"
+      ],
+      "fail": [],
+      "notes": [
+        "zoom=150%",
+        "canvas={\"bitmap\":\"1785x2526\",\"css\":\"893x1263\",\"dprApprox\":2,\"edgeDensity\":1376}"
+      ]
+    },
+    {
+      "id": "mixed",
+      "title": "Mixed stress select/delete",
+      "ok": [
+        "HiDPI render ~2x",
+        "text edges present (1613)",
+        "style bar visible",
+        "shape created (1)",
+        "shape auto-selected",
+        "shape deleted",
+        "text placed: TRIAL-TEXT",
+        "returned to select after text",
+        "text re-selectable",
+        "no auto white block after text",
+        "no page errors"
+      ],
+      "fail": [],
+      "notes": [
+        "zoom=150%",
+        "canvas={\"bitmap\":\"1836x2376\",\"css\":\"918x1188\",\"dprApprox\":2,\"edgeDensity\":1613}"
+      ]
+    }
+  ],
+  "bugs": [],
+  "shots": [
+    "/workspace/artifacts/edit-trials/latin-01-baseline.png",
+    "/workspace/artifacts/edit-trials/latin-02-shape.png",
+    "/workspace/artifacts/edit-trials/latin-03-text.png",
+    "/workspace/artifacts/edit-trials/latin-04-stream.png",
+    "/workspace/artifacts/edit-trials/cjk-01-baseline.png",
+    "/workspace/artifacts/edit-trials/cjk-02-shape.png",
+    "/workspace/artifacts/edit-trials/cjk-03-text.png",
+    "/workspace/artifacts/edit-trials/mixed-01-baseline.png",
+    "/workspace/artifacts/edit-trials/mixed-02-shape.png",
+    "/workspace/artifacts/edit-trials/mixed-03-text.png"
+  ]
+}

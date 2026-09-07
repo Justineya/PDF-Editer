@@ -23,6 +23,14 @@ type Props = {
   onDelete: (ref: EditObjectRef) => void
 }
 
+function safePointerCapture(el: HTMLElement, pointerId: number) {
+  try {
+    el.setPointerCapture(pointerId)
+  } catch {
+    /* Synthetic / already-released pointers throw NotFoundError */
+  }
+}
+
 function approxTextSize(o: OverlayText): { w: number; h: number } {
   const h = o.h ?? o.fontSize * 1.35
   const w = o.w ?? Math.max(40, o.text.length * o.fontSize * 0.62)
@@ -87,7 +95,7 @@ export function EditObjectLayer({
       e.stopPropagation()
       e.preventDefault()
       onSelect(ref)
-      ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
+      safePointerCapture(e.currentTarget as HTMLElement, e.pointerId)
       drag.current = { ref, ox: e.clientX, oy: e.clientY, start: { ...rect } }
     }
 
@@ -122,7 +130,7 @@ export function EditObjectLayer({
       e.stopPropagation()
       e.preventDefault()
       onSelect(ref)
-      ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
+      safePointerCapture(e.currentTarget as HTMLElement, e.pointerId)
       resize.current = { ref, start: { ...rect }, originX: e.clientX, originY: e.clientY }
     }
 
@@ -288,7 +296,7 @@ export function EditObjectLayer({
                   {o.text}
                 </div>
               ) : (
-                o.text
+                <span className="edit-obj-label">{o.text}</span>
               )}
               {sel && !editing && (
                 <>

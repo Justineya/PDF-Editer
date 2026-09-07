@@ -87,12 +87,15 @@ export function renderPageToCanvas(
     const page = await pdf.getPage(pageIndex + 1)
     if (cancelled) throw makeCancelError()
 
-    const outputScale = Math.min(typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1, 2)
-    const viewport = page.getViewport({ scale })
-    const cssW = Math.max(1, Math.floor(viewport.width))
-    const cssH = Math.max(1, Math.floor(viewport.height))
-    const w = Math.max(1, Math.floor(cssW * outputScale))
-    const h = Math.max(1, Math.floor(cssH * outputScale))
+    // HiDPI: bake DPR into viewport scale (sharper than CSS transform path).
+    const dpr =
+      typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1
+    const outputScale = Math.min(Math.max(dpr, 1), 3)
+    const viewport = page.getViewport({ scale: scale * outputScale })
+    const cssW = Math.max(1, viewport.width / outputScale)
+    const cssH = Math.max(1, viewport.height / outputScale)
+    const w = Math.max(1, Math.floor(viewport.width + 0.5))
+    const h = Math.max(1, Math.floor(viewport.height + 0.5))
 
     const off = document.createElement('canvas')
     off.width = w
@@ -102,12 +105,10 @@ export function renderPageToCanvas(
     offCtx.fillStyle = '#ffffff'
     offCtx.fillRect(0, 0, w, h)
 
-    const transform = outputScale !== 1 ? [outputScale, 0, 0, outputScale, 0, 0] : undefined
-    // pdf.js 4.x: canvasContext + viewport (+ optional transform)
+    // Render at device pixels without an extra transform matrix.
     const task = page.render({
       canvasContext: offCtx,
       viewport,
-      transform,
     })
     pdfTask = task
     try {
@@ -124,6 +125,7 @@ export function renderPageToCanvas(
     canvas.style.height = `${cssH}px`
     const ctx = canvas.getContext('2d', { alpha: false })
     if (!ctx) throw new Error('无法创建画布上下文')
+    ctx.imageSmoothingEnabled = false
     ctx.drawImage(off, 0, 0)
     return { width: cssW, height: cssH }
   })()
