@@ -24,6 +24,12 @@ type Props = {
   onDelete: (ref: EditObjectRef) => void
 }
 
+/** Which edges move during resize. */
+type ResizeEdge = 'n' | 's' | 'e' | 'w' | 'ne' | 'nw' | 'se' | 'sw'
+
+const MIN_W = 24
+const MIN_H = 14
+
 function safePointerCapture(el: HTMLElement, pointerId: number) {
   try {
     el.setPointerCapture(pointerId)
@@ -52,8 +58,71 @@ function textRect(o: OverlayText): Rect {
     x: o.x,
     y: o.y,
     w: o.w ?? laid.w,
+    // Honor explicit user height so vertical shrink sticks
     h: o.h ?? laid.h,
   }
+}
+
+function applyResize(start: Rect, dx: number, dy: number, edge: ResizeEdge): Rect {
+  let { x, y, w, h } = start
+  const moveW = edge.includes('w')
+  const moveE = edge.includes('e')
+  const moveN = edge.includes('n')
+  const moveS = edge.includes('s')
+
+  if (moveE) w = start.w + dx
+  if (moveS) h = start.h + dy
+  if (moveW) {
+    w = start.w - dx
+    x = start.x + dx
+  }
+  if (moveN) {
+    h = start.h - dy
+    y = start.y + dy
+  }
+
+  if (w < MIN_W) {
+    if (moveW) x = start.x + start.w - MIN_W
+    w = MIN_W
+  }
+  if (h < MIN_H) {
+    if (moveN) y = start.y + start.h - MIN_H
+    h = MIN_H
+  }
+  return { x, y, w, h }
+}
+
+const HANDLE_EDGES: ResizeEdge[] = ['n', 's', 'e', 'w', 'ne', 'nw', 'se', 'sw']
+
+function ResizeHandles({
+  rect,
+  locked,
+  onStart,
+}: {
+  rect: Rect
+  locked?: boolean
+  onStart: (edge: ResizeEdge, e: ReactPointerEvent) => void
+}) {
+  return (
+    <>
+      {HANDLE_EDGES.map((edge) => (
+        <span
+          key={edge}
+          className={`resize-handle edge-${edge}`}
+          data-edge={edge}
+          title={
+            edge === 'e' || edge === 'w'
+              ? '左右缩放'
+              : edge === 'n' || edge === 's'
+                ? '上下缩放'
+                : '对角缩放'
+          }
+          onPointerDown={(e) => onStart(edge, e)}
+          style={{ pointerEvents: locked ? 'none' : 'auto' }}
+        />
+      ))}
+    </>
+  )
 }
 
 export function EditObjectLayer({
@@ -83,6 +152,7 @@ export function EditObjectLayer({
     start: Rect
     originX: number
     originY: number
+    edge: ResizeEdge
   }>(null)
 
   useEffect(() => {
@@ -112,13 +182,7 @@ export function EditObjectLayer({
       if (resize.current) {
         const dx = (e.clientX - resize.current.originX) / scale
         const dy = (e.clientY - resize.current.originY) / scale
-        const s = resize.current.start
-        onResize(resize.current.ref, {
-          x: s.x,
-          y: s.y,
-          w: Math.max(24, s.w + dx),
-          h: Math.max(16, s.h + dy),
-        })
+        onResize(resize.current.ref, applyResize(resize.current.start, dx, dy, resize.current.edge))
       }
     }
     const onUpWin = () => {
@@ -150,14 +214,21 @@ export function EditObjectLayer({
     }
 
   const startResize =
-    (ref: EditObjectRef, rect: Rect, locked?: boolean) => (e: ReactPointerEvent) => {
+    (ref: EditObjectRef, rect: Rect, locked?: boolean) =>
+    (edge: ResizeEdge, e: ReactPointerEvent) => {
       if (!interactive || locked) return
       e.stopPropagation()
       e.preventDefault()
       onSelect(ref)
       drag.current = null
       safePointerCapture(e.currentTarget as HTMLElement, e.pointerId)
-      resize.current = { ref, start: { ...rect }, originX: e.clientX, originY: e.clientY }
+      resize.current = {
+        ref,
+        start: { ...rect },
+        originX: e.clientX,
+        originY: e.clientY,
+        edge,
+      }
     }
 
   const chrome = (ref: EditObjectRef, opts?: { editText?: boolean }) => (
@@ -205,14 +276,15 @@ export function EditObjectLayer({
                 borderRadius: w.shape === 'ellipse' ? '50%' : undefined,
               }}
               onPointerDown={onPointerDownMove(ref, w.rect, w.locked)}
-              title="图形 · 拖动 / 右下角缩放"
+              title="图形 · 拖动 / 边角缩放"
             >
               {sel && (
                 <>
                   {chrome(ref)}
-                  <span
-                    className="resize-handle"
-                    onPointerDown={startResize(ref, w.rect, w.locked)}
+                  <ResizeHandles
+                    rect={w.rect}
+                    locked={w.locked}
+                    onStart={startResize(ref, w.rect, w.locked)}
                   />
                 </>
               )}
@@ -237,13 +309,17 @@ export function EditObjectLayer({
                 height: o.h * scale,
               }}
               onPointerDown={onPointerDownMove(ref, rect, o.locked)}
-              title="图片 · 拖动 / 右下角缩放"
+              title="图片 · 拖动 / 边角缩放"
             >
               <img src={o.dataUrl} alt="" draggable={false} />
               {sel && (
                 <>
                   {chrome(ref)}
-                  <span className="resize-handle" onPointerDown={startResize(ref, rect, o.locked)} />
+                  <ResizeHandles
+                    rect={rect}
+                    locked={o.locked}
+                    onStart={startResize(ref, rect, o.locked)}
+                  />
                 </>
               )}
             </div>
@@ -280,7 +356,7 @@ export function EditObjectLayer({
                 onSelect(ref)
                 setEditingId(o.id)
               }}
-              title="文字 · 拖右下角缩放 · 样式条改字体"
+              title="文字 · 四边/四角缩放（左右、上下可单独拖）"
             >
               {editing ? (
                 <div
@@ -314,7 +390,11 @@ export function EditObjectLayer({
               {sel && !editing && (
                 <>
                   {chrome(ref, { editText: true })}
-                  <span className="resize-handle" onPointerDown={startResize(ref, rect, o.locked)} />
+                  <ResizeHandles
+                    rect={rect}
+                    locked={o.locked}
+                    onStart={startResize(ref, rect, o.locked)}
+                  />
                 </>
               )}
             </div>

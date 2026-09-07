@@ -401,22 +401,72 @@ button.active { border-color: var(--accent-2); color: var(--accent-2); font-weig
 }
 .resize-handle {
   position: absolute;
-  right: -7px;
-  bottom: -7px;
-  width: 14px;
-  height: 14px;
+  width: 10px;
+  height: 10px;
   background: var(--accent);
   border: 2px solid #fff;
   border-radius: 2px;
-  cursor: nwse-resize;
   pointer-events: auto;
   z-index: 6;
   box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.25);
+  box-sizing: border-box;
 }
 .resize-handle::after {
   content: '';
   position: absolute;
-  inset: -8px;
+  inset: -6px;
+}
+.resize-handle.edge-n {
+  top: -6px;
+  left: 50%;
+  transform: translateX(-50%);
+  cursor: ns-resize;
+  width: 12px;
+  height: 8px;
+}
+.resize-handle.edge-s {
+  bottom: -6px;
+  left: 50%;
+  transform: translateX(-50%);
+  cursor: ns-resize;
+  width: 12px;
+  height: 8px;
+}
+.resize-handle.edge-e {
+  right: -6px;
+  top: 50%;
+  transform: translateY(-50%);
+  cursor: ew-resize;
+  width: 8px;
+  height: 12px;
+}
+.resize-handle.edge-w {
+  left: -6px;
+  top: 50%;
+  transform: translateY(-50%);
+  cursor: ew-resize;
+  width: 8px;
+  height: 12px;
+}
+.resize-handle.edge-se {
+  right: -6px;
+  bottom: -6px;
+  cursor: nwse-resize;
+}
+.resize-handle.edge-sw {
+  left: -6px;
+  bottom: -6px;
+  cursor: nesw-resize;
+}
+.resize-handle.edge-ne {
+  right: -6px;
+  top: -6px;
+  cursor: nesw-resize;
+}
+.resize-handle.edge-nw {
+  left: -6px;
+  top: -6px;
+  cursor: nwse-resize;
 }
 .whiteout-box { position: absolute; }
 .page-empty-text {

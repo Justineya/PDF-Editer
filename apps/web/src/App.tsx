@@ -1437,8 +1437,28 @@ useEffect(() => {
                             ? typed
                             : MACAU_ADDR.block
                         updateActive((d) => {
-                          const covers = [...(d.whiteouts ?? [])]
-                          const texts = [...d.overlays]
+                          // Drop previous covers/texts that overlap the new hit clusters
+                          // so re-running replace does not stack thin whiteouts.
+                          const overlaps = (
+                            a: { x: number; y: number; w: number; h: number },
+                            b: { x: number; y: number; w: number; h: number },
+                          ) =>
+                            !(
+                              a.x + a.w < b.x ||
+                              b.x + b.w < a.x ||
+                              a.y + a.h < b.y ||
+                              b.y + b.h < a.y
+                            )
+                          const hitRects = addressHits.map((h) => h.rect)
+                          const covers = (d.whiteouts ?? []).filter(
+                            (w) => !hitRects.some((r) => overlaps(w.rect, r)),
+                          )
+                          const texts = d.overlays.filter(
+                            (o) =>
+                              !hitRects.some((r) =>
+                                overlaps({ x: o.x, y: o.y, w: o.w ?? 40, h: o.h ?? 20 }, r),
+                              ),
+                          )
                           for (const hit of addressHits) {
                             const pair = coverAndRetypeHit(hit, text, {
                               idCover: uuid(),

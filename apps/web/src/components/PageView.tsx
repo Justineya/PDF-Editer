@@ -693,14 +693,14 @@ export function PageView({
                   dirty: true,
                   overlays: d.overlays.map((o) => {
                     if (o.id !== ref.id) return o
-                    // Width drives wrap; keep user height but never shorter than laid-out lines
-                    const laid = layoutTextBlock(o.text, o.fontSize, rect.w)
+                    // User-driven box size: allow shrink on both axes.
+                    // Width still drives wrap on screen/export; height is the clip box.
                     return {
                       ...o,
                       x: rect.x,
                       y: rect.y,
-                      w: rect.w,
-                      h: Math.max(rect.h, laid.h),
+                      w: Math.max(24, rect.w),
+                      h: Math.max(14, rect.h),
                     }
                   }),
                 }
