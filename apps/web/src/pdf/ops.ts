@@ -138,12 +138,18 @@ function drawStamp(page: PDFPage, ann: Extract<Annotation, { kind: 'stamp' }>, f
 }
 
 async function fontForFamily(pdf: PDFDocument, family?: string, bold?: boolean) {
+  // Phase-1: TC Light/DemiLight as true vector embeds (not Canvas PNG).
+  if (family === 'tc-light' || family === 'tc-demilight' || family === 'sans-cjk') {
+    const { embedOverlayFont } = await import('./vectorFonts')
+    const id = family === 'tc-demilight' ? 'tc-demilight' : 'tc-light'
+    const embedded = await embedOverlayFont(pdf, id)
+    if (embedded) return embedded
+  }
   const map: Record<string, StandardFonts> = {
     helvetica: bold ? StandardFonts.HelveticaBold : StandardFonts.Helvetica,
     times: bold ? StandardFonts.TimesRomanBold : StandardFonts.TimesRoman,
     courier: bold ? StandardFonts.CourierBold : StandardFonts.Courier,
   }
-  // CJK families fall back to Helvetica for standard embed (no embedded CJK font yet)
   const key = family && map[family] ? family : 'helvetica'
   return pdf.embedFont(map[key])
 }
@@ -159,7 +165,10 @@ async function drawOverlays(
   const { height } = page.getSize()
   for (const t of texts.filter((x) => x.pageIndex === pageIndex)) {
     const textFont = await fontForFamily(pdf, t.fontFamily, t.bold)
-    // pdf-lib WinAnsi cannot encode most CJK; keep best-effort Latin and skip empty
+    const useVectorCjk =
+      t.fontFamily === 'tc-light' ||
+      t.fontFamily === 'tc-demilight' ||
+      t.fontFamily === 'sans-cjk'
     try {
       page.drawText(t.text, {
         x: t.x,
@@ -168,7 +177,8 @@ async function drawOverlays(
         font: textFont,
         color: hexToRgb(t.color),
       })
-    } catch {
+    } catch (err) {
+      if (useVectorCjk) throw err
       page.drawText(t.text.replace(/[^\x00-\xFF]/g, '?'), {
         x: t.x,
         y: height - t.y,
@@ -332,10 +342,11 @@ export async function exportDocument(model: DocumentModel): Promise<Uint8Array> 
         drawStamp(page, ann, font)
       }
     }
+    // Erase/whiteout under vector text (擦除重打)
+    drawWhiteouts(page, i, model.whiteouts ?? [])
     await drawOverlays(pdf, page, i, model.overlays, model.images, font)
     await drawSignatures(pdf, page, i, model.signatures)
     if (model.watermark?.text) drawWatermark(page, model.watermark, font)
-    drawWhiteouts(page, i, model.whiteouts ?? [])
     drawRedactions(page, i, model.redactions)
   }
 

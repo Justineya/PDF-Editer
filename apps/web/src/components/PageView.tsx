@@ -153,14 +153,14 @@ function AnnotPaint(props: {
                 fontSize: o.fontSize * scale * 0.85,
                 fontWeight: o.bold ? 700 : 600,
                 fontFamily:
-                  o.fontFamily === 'times'
-                    ? '"Times New Roman", Times, serif'
-                    : o.fontFamily === 'courier'
-                      ? '"Courier New", Courier, monospace'
-                      : o.fontFamily === 'serif-cjk'
-                        ? '"Noto Serif SC", "Songti SC", SimSun, serif'
-                        : o.fontFamily === 'sans-cjk'
-                          ? '"Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif'
+                  o.fontFamily === 'tc-light' || o.fontFamily === 'sans-cjk'
+                    ? '"Source Han Sans TC Light", "Noto Sans TC", "PingFang TC", sans-serif'
+                    : o.fontFamily === 'tc-demilight'
+                      ? '"Source Han Sans TC", "Noto Sans TC", "PingFang TC", sans-serif'
+                      : o.fontFamily === 'times'
+                        ? '"Times New Roman", Times, serif'
+                        : o.fontFamily === 'courier'
+                          ? '"Courier New", Courier, monospace'
                           : 'Helvetica, Arial, sans-serif',
               }}
             >
@@ -909,7 +909,7 @@ export function PageView({
         />
       )}
       {mode === 'select' && !hasText && (
-        <div className="page-empty-text">本页无可选文字 · 可用批注「区域」或先 OCR</div>
+        <div className="page-empty-text">本页无文字层（图档/投保书）· 请用编辑叠层改址，勿假装选字</div>
       )}
       <div className="muted page-num">第 {pageIndex + 1} 页</div>
     </div>

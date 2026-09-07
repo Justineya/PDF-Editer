@@ -1,3 +1,18 @@
+@font-face {
+  font-family: 'Source Han Sans TC Light';
+  src: url('/fonts/tc/SourceHanSansTC-Light.otf') format('opentype');
+  font-weight: 300;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Source Han Sans TC';
+  src: url('/fonts/tc/SourceHanSansTC-DemiLight.otf') format('opentype');
+  font-weight: 350;
+  font-style: normal;
+  font-display: swap;
+}
+
 :root {
   --bg: #e8ece9;
   --panel: #f4f7f5;

@@ -14,7 +14,10 @@
     "e2e": "node ./scripts/e2e-smoke.mjs",
     "lint": "pnpm --dir apps/web lint",
     "desktop": "pnpm --dir apps/web desktop",
-    "desktop:build": "pnpm --dir apps/web desktop:build"
+    "desktop:build": "pnpm --dir apps/web desktop:build",
+    "fonts:tc": "node ./scripts/fetch-tc-fonts.mjs",
+    "samples:phase1": "node ./scripts/gen-phase1-samples.mjs",
+    "smoke:phase1": "node --experimental-strip-types ./scripts/smoke-phase1-overlay.mjs"
   },
   "engines": {
     "node": ">=20"

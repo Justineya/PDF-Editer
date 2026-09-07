@@ -155,7 +155,7 @@ export default function App() {
   const [selectedPages, setSelectedPages] = useState<number[]>([])
   const [editTool, setEditTool] = useState<EditTool>('select')
   const [editStyle, setEditStyle] = useState<EditStyle>({
-    fontFamily: 'sans-cjk',
+    fontFamily: 'tc-light',
     fontSize: 16,
     textColor: '#1a2332',
     fillColor: '#ffffff',
