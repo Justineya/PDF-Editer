@@ -150,8 +150,10 @@ function AnnotPaint(props: {
                 left: o.x * scale,
                 top: o.y * scale,
                 color: o.color,
-                fontSize: o.fontSize * scale * 0.85,
-                fontWeight: o.bold ? 700 : 600,
+                fontSize: o.fontSize * scale,
+                fontWeight: o.bold ? 700 : 400,
+                lineHeight: 1.25,
+                whiteSpace: 'pre-wrap',
                 fontFamily:
                   o.fontFamily === 'tc-regular' || o.fontFamily === 'sans-cjk'
                     ? '"Source Han Sans TC", "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", sans-serif'

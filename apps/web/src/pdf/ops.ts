@@ -184,24 +184,38 @@ async function drawOverlays(
       t.fontFamily === 'tc-regular' ||
       t.fontFamily === 'tc-bold' ||
       t.fontFamily === 'sans-cjk'
-    try {
-      page.drawText(t.text, {
-        x: t.x,
-        y: height - t.y,
-        size: t.fontSize,
-        font: textFont,
-        color: hexToRgb(t.color),
-      })
-    } catch (err) {
-      if (useVectorCjk) throw err
-      page.drawText(t.text.replace(/[^\x00-\xFF]/g, '?'), {
-        x: t.x,
-        y: height - t.y,
-        size: t.fontSize,
-        font: textFont,
-        color: hexToRgb(t.color),
-      })
-    }
+    // Match on-screen CSS: top-left origin, top-aligned runs, ~1.25 line-height.
+    // pdf-lib drawText y is baseline — NOT the CSS `top`.
+    const size = t.fontSize
+    const lineHeight = size * 1.25
+    const lines = String(t.text ?? '').split(/\r?\n/)
+    lines.forEach((line, i) => {
+      const content = line
+      if (!content) return
+      // CSS top = t.y → first baseline ≈ t.y + size (descending screen Y)
+      const baselineScreenY = t.y + size * 0.9 + i * lineHeight
+      const pdfY = height - baselineScreenY
+      try {
+        page.drawText(content, {
+          x: t.x,
+          y: pdfY,
+          size,
+          font: textFont,
+          color: hexToRgb(t.color),
+          maxWidth: t.w && t.w > 8 ? t.w : undefined,
+          lineHeight,
+        })
+      } catch (err) {
+        if (useVectorCjk) throw err
+        page.drawText(content.replace(/[^\x00-\xFF]/g, '?'), {
+          x: t.x,
+          y: pdfY,
+          size,
+          font: textFont,
+          color: hexToRgb(t.color),
+        })
+      }
+    })
   }
   for (const img of images.filter((x) => x.pageIndex === pageIndex)) {
     const embedded = await embedImage(pdf, img.dataUrl)
