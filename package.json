@@ -1,0 +1,21 @@
+{
+  "name": "forgepdf",
+  "private": true,
+  "version": "0.2.1",
+  "description": "ForgePDF \u2014 local-first PDF workbench",
+  "scripts": {
+    "dev": "pnpm --dir apps/web dev",
+    "build": "pnpm --dir apps/web build",
+    "preview": "pnpm --dir apps/web preview",
+    "start": "pnpm --dir apps/web dev --host --port 5173",
+    "samples": "NODE_PATH=./apps/web/node_modules node ./scripts/generate-samples.mjs",
+    "smoke": "NODE_PATH=./apps/web/node_modules node ./scripts/smoke-ops.mjs",
+    "accept": "cd apps/web && node ../../scripts/acceptance-run.mjs",
+    "e2e": "node ./scripts/e2e-smoke.mjs",
+    "lint": "pnpm --dir apps/web lint"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "packageManager": "pnpm@10.33.3"
+}
